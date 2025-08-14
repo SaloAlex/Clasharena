@@ -1,0 +1,17 @@
+# Variables de entorno necesarias para el proyecto
+# Copia este contenido a un archivo .env.local en la raíz del proyecto
+
+# Riot Games API
+RIOT_API_KEY=RGAPI-53f5f3f8-82d1-4738-be99-202153450497
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://ppxgtjfwhfjipithdhpc.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBweGd0amZ3aGZqaXBpaHRkaHBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcyNDUyNjAsImV4cCI6MjA2MjgyMTI2MH0.LF9jSIaVIhnOG_omvg8MP1BBK0CVITKYB4co7aN-5aU
+
+# Necesitas obtener estas claves de Supabase Dashboard
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+DATABASE_URL=postgresql://postgres:your_password@db.ppxgtjfwhfjipithdhpc.supabase.co:5432/postgres
+
+# Configuración de Riot para vinculación sin OAuth
+RIOT_REGION=americas
+RIOT_PLATFORM=LA2
