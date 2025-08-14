@@ -1,14 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
-import { requireAuth } from '@/lib/supabase-server';
+import { NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
-export const dynamic = 'force-dynamic';
-
-export async function POST(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const user = await requireAuth();
-    const body = await request.json();
+    const supabase = createRouteHandlerClient({ cookies });
+    
+    const { data: tournaments, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .order('created_at', { ascending: false });
 
+    if (error) {
+      console.error('[TOURNAMENTS_GET]', error);
+      return new NextResponse("Error al obtener torneos", { status: 500 });
+    }
+
+    return NextResponse.json(tournaments);
+  } catch (error) {
+    console.error('[TOURNAMENTS_GET]', error);
+    return new NextResponse("Error interno del servidor", { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const supabase = createRouteHandlerClient({ cookies });
+    
+    // Verificar autenticación
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    if (authError || !session) {
+      return new NextResponse("No autorizado", { status: 401 });
+    }
+
+    const body = await req.json();
     const {
       title,
       description,
@@ -22,129 +47,51 @@ export async function POST(request: NextRequest) {
       pointsPerfectGame,
       minRank,
       maxRank,
-      maxGamesPerDay
+      maxGamesPerDay,
     } = body;
 
-    // Validaciones básicas
-    if (!title || !format || !startDate || !endDate) {
-      return NextResponse.json(
-        { error: 'Faltan campos requeridos' },
-        { status: 400 }
-      );
+    if (!title) {
+      return new NextResponse("El título es requerido", { status: 400 });
     }
 
     // Validar fechas
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const now = new Date();
-
-    if (start < now) {
-      return NextResponse.json(
-        { error: 'La fecha de inicio debe ser futura' },
-        { status: 400 }
-      );
+    if (new Date(endDate) <= new Date(startDate)) {
+      return new NextResponse("La fecha de fin debe ser posterior a la fecha de inicio", { status: 400 });
     }
 
-    if (end <= start) {
-      return NextResponse.json(
-        { error: 'La fecha de fin debe ser posterior a la fecha de inicio' },
-        { status: 400 }
-      );
-    }
-
-    // Crear el torneo
-    const { data: tournament, error } = await supabaseAdmin
+    console.log('Creating tournament with user:', session.user);
+    
+    // Crear el torneo en Supabase
+    const { data: tournament, error } = await supabase
       .from('tournaments')
-      .insert({
-        creator_id: user.id,
+      .insert([{
+        creator_id: session.user.id, // Asegurarnos de que este es el ID correcto
         title,
         description,
         format,
-        start_date: start.toISOString(),
-        end_date: end.toISOString(),
+        status: 'upcoming', // Los torneos comienzan en estado 'upcoming'
+        start_date: startDate,
+        end_date: endDate,
         points_per_win: pointsPerWin,
         points_per_loss: pointsPerLoss,
         points_first_blood: pointsFirstBlood,
         points_first_tower: pointsFirstTower,
         points_perfect_game: pointsPerfectGame,
-        min_rank: minRank || null,
-        max_rank: maxRank || null,
-        max_games_per_day: maxGamesPerDay || null,
-        status: start > now ? 'upcoming' : 'active'
-      })
+        min_rank: minRank,
+        max_rank: maxRank,
+        max_games_per_day: maxGamesPerDay
+      }])
       .select()
       .single();
 
     if (error) {
-      console.error('Error al crear torneo:', error);
-      return NextResponse.json(
-        { error: 'Error al crear el torneo' },
-        { status: 500 }
-      );
+      console.error('[TOURNAMENTS_POST]', error);
+      return new NextResponse(error.message, { status: 500 });
     }
 
     return NextResponse.json(tournament);
-
-  } catch (error: any) {
-    console.error('Error in tournaments/create:', error);
-    
-    if (error.message.includes('Authentication required')) {
-      return NextResponse.json(
-        { error: 'Debes iniciar sesión para crear un torneo' },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const creatorId = searchParams.get('creator_id');
-
-    let query = supabaseAdmin
-      .from('tournaments')
-      .select(`
-        *,
-        creator:creator_id(
-          id,
-          email
-        ),
-        participants:tournament_participants(count)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (creatorId) {
-      query = query.eq('creator_id', creatorId);
-    }
-
-    const { data: tournaments, error } = await query;
-
-    if (error) {
-      console.error('Error al obtener torneos:', error);
-      return NextResponse.json(
-        { error: 'Error al obtener los torneos' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(tournaments);
-
-  } catch (error: any) {
-    console.error('Error in tournaments/list:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('[TOURNAMENTS_POST]', error);
+    return new NextResponse("Error interno del servidor", { status: 500 });
   }
 }

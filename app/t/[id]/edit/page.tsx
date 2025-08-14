@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
-import { toast } from 'sonner';
 import { Trophy, Calendar, Medal, Settings } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 interface TournamentFormData {
   title: string;
@@ -29,11 +30,11 @@ interface TournamentFormData {
   maxGamesPerDay: number;
 }
 
-export default function CreateTournamentPage() {
+export default function EditTournamentPage() {
   const router = useRouter();
-  const { user } = useAuth(); // <- hook siempre arriba
-
-  const [isLoading, setIsLoading] = useState(false);
+  const params = useParams();
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<TournamentFormData>({
     title: '',
     description: '',
@@ -50,38 +51,108 @@ export default function CreateTournamentPage() {
     maxGamesPerDay: 0
   });
 
-  // Redirección segura en efecto (no durante el render)
   useEffect(() => {
-    if (user && user.email !== 'dvdsalomon6@gmail.com') {
-      router.replace('/tournaments');
-    }
-  }, [user, router]);
+    if (!user) return;
+    loadTournament();
+  }, [params.id, user]);
 
-  // Evita parpadeo: si hay usuario y no es admin, no renderizamos el form
-  if (user && user.email !== 'dvdsalomon6@gmail.com') return null;
+  const loadTournament = async () => {
+    try {
+      console.log('Current user:', user);
+      
+      const { data: tournament, error } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('id', params.id)
+        .single();
+
+      if (error) throw error;
+      if (!tournament) throw new Error('Torneo no encontrado');
+
+      console.log('Tournament:', tournament);
+      console.log('Creator ID:', tournament.creator_id);
+      console.log('User ID:', user?.id);
+
+      // Verificar que el usuario sea el creador
+      if (!user || tournament.creator_id !== user.id) {
+        console.log('Permission denied - IDs do not match');
+        toast.error('No tienes permiso para editar este torneo');
+        router.push('/tournaments');
+        return;
+      }
+
+      setFormData({
+        title: tournament.title,
+        description: tournament.description,
+        format: tournament.format as any,
+        startDate: new Date(tournament.start_date),
+        endDate: new Date(tournament.end_date),
+        pointsPerWin: tournament.points_per_win,
+        pointsPerLoss: tournament.points_per_loss,
+        pointsFirstBlood: tournament.points_first_blood,
+        pointsFirstTower: tournament.points_first_tower,
+        pointsPerfectGame: tournament.points_perfect_game,
+        minRank: tournament.min_rank,
+        maxRank: tournament.max_rank,
+        maxGamesPerDay: tournament.max_games_per_day
+      });
+    } catch (error: any) {
+      toast.error(error.message);
+      router.push('/tournaments');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/tournaments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      const { error } = await supabase
+        .from('tournaments')
+        .update({
+          title: formData.title,
+          description: formData.description,
+          format: formData.format,
+          start_date: formData.startDate.toISOString(),
+          end_date: formData.endDate.toISOString(),
+          points_per_win: formData.pointsPerWin,
+          points_per_loss: formData.pointsPerLoss,
+          points_first_blood: formData.pointsFirstBlood,
+          points_first_tower: formData.pointsFirstTower,
+          points_perfect_game: formData.pointsPerfectGame,
+          min_rank: formData.minRank,
+          max_rank: formData.maxRank,
+          max_games_per_day: formData.maxGamesPerDay
+        })
+        .eq('id', params.id)
+        .eq('creator_id', user?.id);
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error al crear el torneo');
+      if (error) throw error;
 
-      toast.success('¡Torneo creado exitosamente!');
-      router.push(`/tournaments/${data.id}`);
+      toast.success('¡Torneo actualizado exitosamente!');
+      router.push(`/t/${params.id}`);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen py-8 px-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="max-w-4xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 bg-slate-800/50 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8 px-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -93,8 +164,8 @@ export default function CreateTournamentPage() {
               <Trophy className="w-8 h-8 text-blue-500" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">Crear Nuevo Torneo</h1>
-          <p className="text-slate-400">Configura los detalles de tu torneo</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Editar Torneo</h1>
+          <p className="text-slate-400">Modifica los detalles de tu torneo</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -151,8 +222,6 @@ export default function CreateTournamentPage() {
                   </SelectContent>
                 </Select>
               </div>
-
-
             </CardContent>
           </Card>
 
@@ -322,20 +391,34 @@ export default function CreateTournamentPage() {
             </CardContent>
           </Card>
 
-          {/* Botón de Submit */}
-          <Button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-            {isLoading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Creando Torneo...
-              </>
-            ) : (
-              <>
-                <Trophy className="w-4 h-4 mr-2" />
-                Crear Torneo
-              </>
-            )}
-          </Button>
+          {/* Botones */}
+          <div className="flex gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              className="w-full"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Guardar Cambios
+                </>
+              )}
+            </Button>
+          </div>
         </form>
       </div>
     </div>

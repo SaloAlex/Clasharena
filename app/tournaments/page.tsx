@@ -16,12 +16,8 @@ interface Tournament {
   status: string;
   start_date: string;
   end_date: string;
-  creator: {
-    email: string;
-  };
-  participants: {
-    count: number;
-  }[];
+  creator_id: string;
+  participant_count?: number;
 }
 
 export default function TournamentsPage() {
@@ -118,7 +114,7 @@ export default function TournamentsPage() {
               Explora y participa en torneos de League of Legends
             </p>
           </div>
-          {user && (
+          {user?.email === 'dvdsalomon6@gmail.com' && (
             <Button
               onClick={() => router.push('/tournaments/create')}
               className="bg-blue-600 hover:bg-blue-700"
@@ -136,7 +132,7 @@ export default function TournamentsPage() {
               <Card
                 key={tournament.id}
                 className="border-slate-700 bg-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer"
-                onClick={() => router.push(`/tournaments/${tournament.id}`)}
+                onClick={() => router.push(`/t/${tournament.id}`)}
               >
                 <CardHeader>
                   <div className="flex justify-between items-start">
@@ -165,7 +161,7 @@ export default function TournamentsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-blue-400" />
-                      <span>{tournament.participants[0]?.count || 0} participantes</span>
+                      <span>{tournament.participant_count || 0} participantes</span>
                     </div>
                     <div className="ml-auto">
                       <Button variant="ghost" size="sm">
@@ -186,7 +182,7 @@ export default function TournamentsPage() {
               <p className="text-slate-400 mb-4">
                 Sé el primero en crear un torneo
               </p>
-              {user && (
+              {user?.email === 'dvdsalomon6@gmail.com' && (
                 <Button
                   onClick={() => router.push('/tournaments/create')}
                   className="bg-blue-600 hover:bg-blue-700"

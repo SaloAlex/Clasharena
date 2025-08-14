@@ -1,63 +1,69 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
 import { Trophy, Calendar, Users, Target, Clock, Star } from 'lucide-react';
 import { formatDistance } from 'date-fns';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
-interface User {
-  id: string;
-  displayName: string | null;
-  email: string;
-}
+import { User } from '@supabase/supabase-js';
 
 interface Tournament {
   id: string;
-  name: string;
-  description: string | null;
-  startAt: Date;
-  endAt: Date;
+  title: string;
+  description: string;
+  format: string;
   status: string;
-  queues: number[];
-  scoringJson: any;
-  _count: {
-    registrations: number;
-  };
+  start_date: string;
+  end_date: string;
+  creator_id: string;
+  points_per_win: number;
+  points_per_loss: number;
+  points_first_blood: number;
+  points_first_tower: number;
+  points_perfect_game: number;
+  min_rank: string;
+  max_rank: string;
+  max_games_per_day: number;
+}
+
+interface TournamentRegistration {
+  id: string;
+  tournament_id: string;
+  user_id: string;
+  created_at: string;
 }
 
 interface LeaderboardEntry {
   user_id: string;
-  email: string;
-  display_name: string | null;
-  summoner_name: string | null;
-  region: string;
-  matches_played: number;
-  total_points: number;
+  points: number;
+  games_played: number;
   wins: number;
   losses: number;
-  avg_kda: number | null;
   last_match_at: string | null;
 }
 
 interface TournamentDetailsProps {
   tournament: Tournament;
-  userRegistration: any;
+  userRegistration: TournamentRegistration | null;
   leaderboard: LeaderboardEntry[];
-  currentUser: any;
+  currentUser: User | null;
 }
-
-const QUEUE_NAMES: Record<number, string> = {
-  420: 'Ranked Solo/Duo',
-  440: 'Ranked Flex',
-  430: 'Normal Blind',
-  400: 'Normal Draft',
-  450: 'ARAM',
-};
 
 export function TournamentDetails({ 
   tournament, 
@@ -65,14 +71,41 @@ export function TournamentDetails({
   leaderboard, 
   currentUser 
 }: TournamentDetailsProps) {
+  const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/tournaments/${tournament.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al eliminar el torneo');
+      }
+
+      toast.success('Torneo eliminado exitosamente');
+      router.push('/tournaments');
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   const now = new Date();
-  const isActive = tournament.status === 'active' && now >= tournament.startAt && now <= tournament.endAt;
+  const startDate = new Date(tournament.start_date);
+  const endDate = new Date(tournament.end_date);
+  const isActive = tournament.status === 'active' && now >= startDate && now <= endDate;
   const canRegister = isActive && !userRegistration && currentUser;
 
   const handleRegistration = async () => {
     if (!currentUser) {
-      toast.error('Please sign in to register for tournaments');
+      toast.error('Por favor, inicia sesión para registrarte en torneos');
       return;
     }
 
@@ -85,10 +118,10 @@ export function TournamentDetails({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to register');
+        throw new Error(error.message || 'Error al registrarse');
       }
 
-      toast.success('Successfully registered for tournament!');
+      toast.success('¡Registrado exitosamente en el torneo!');
       window.location.reload();
     } catch (error: any) {
       toast.error(error.message);
@@ -98,66 +131,149 @@ export function TournamentDetails({
   };
 
   const getStatusBadge = () => {
-    if (isActive) {
-      return <Badge className="status-active">Active</Badge>;
-    } else if (tournament.status === 'draft') {
-      return <Badge className="status-draft">Upcoming</Badge>;
-    } else if (tournament.status === 'finished') {
-      return <Badge className="status-finished">Finished</Badge>;
-    }
-    return <Badge variant="secondary">{tournament.status}</Badge>;
+    const statusColors = {
+      'draft': 'bg-slate-500/20 text-slate-300',
+      'upcoming': 'bg-blue-500/20 text-blue-300',
+      'active': 'bg-green-500/20 text-green-300',
+      'completed': 'bg-purple-500/20 text-purple-300',
+      'cancelled': 'bg-red-500/20 text-red-300'
+    };
+
+    return (
+      <Badge className={statusColors[tournament.status as keyof typeof statusColors] || statusColors.draft}>
+        {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+      </Badge>
+    );
+  };
+
+  const getFormatLabel = (format: string) => {
+    const formats = {
+      'duration': 'Por Duración',
+      'league': 'Liga',
+      'elimination': 'Eliminación Directa',
+      'mixed': 'Mixto'
+    };
+    return formats[format as keyof typeof formats] || format;
   };
 
   return (
     <div className="space-y-8">
       {/* Tournament Header */}
-      <Card className="tournament-card">
+      <Card className="border-slate-700 bg-slate-800/50">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <Trophy className="w-8 h-8 text-yellow-500" />
               <div>
-                <CardTitle className="text-3xl">{tournament.name}</CardTitle>
-                <CardDescription className="text-lg mt-1">
-                  {tournament.description || 'No description available'}
+                <CardTitle className="text-3xl text-white">{tournament.title}</CardTitle>
+                <CardDescription className="text-lg mt-1 text-slate-400">
+                  {tournament.description || 'Sin descripción'}
                 </CardDescription>
               </div>
             </div>
-            {getStatusBadge()}
+            <div className="flex items-center gap-2">
+              {currentUser && currentUser.id === tournament.creator_id && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/t/${tournament.id}/edit`);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Eliminar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-slate-900 border border-slate-800">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-white">¿Eliminar torneo?</AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-400">
+                          Esta acción no se puede deshacer. Se eliminarán todos los datos del torneo,
+                          incluyendo registros de participantes y puntuaciones.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel 
+                          className="bg-slate-800 text-white hover:bg-slate-700 border-slate-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 text-white hover:bg-red-700"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete();
+                          }}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                              Eliminando...
+                            </>
+                          ) : (
+                            'Eliminar Torneo'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
+              {getStatusBadge()}
+            </div>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Tournament Stats */}
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-4 gap-4">
             <div className="flex items-center space-x-3">
               <Calendar className="w-5 h-5 text-blue-400" />
               <div>
-                <p className="text-sm text-slate-400">Duration</p>
-                <p className="font-medium">
-                  {formatDistance(tournament.startAt, tournament.endAt)}
+                <p className="text-sm text-slate-400">Duración</p>
+                <p className="font-medium text-white">
+                  {formatDistance(startDate, endDate)}
                 </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-3">
-              <Users className="w-5 h-5 text-green-400" />
+              <Trophy className="w-5 h-5 text-green-400" />
               <div>
-                <p className="text-sm text-slate-400">Participants</p>
-                <p className="font-medium">{tournament._count.registrations}</p>
+                <p className="text-sm text-slate-400">Formato</p>
+                <p className="font-medium text-white">{getFormatLabel(tournament.format)}</p>
               </div>
             </div>
 
             <div className="flex items-center space-x-3">
-              <Clock className="w-5 h-5 text-purple-400" />
+              <Users className="w-5 h-5 text-purple-400" />
               <div>
-                <p className="text-sm text-slate-400">Status</p>
-                <p className="font-medium">
+                <p className="text-sm text-slate-400">Participantes</p>
+                <p className="font-medium text-white">{leaderboard.length}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <Clock className="w-5 h-5 text-orange-400" />
+              <div>
+                <p className="text-sm text-slate-400">Estado</p>
+                <p className="font-medium text-white">
                   {isActive 
-                    ? `Ends ${formatDistance(tournament.endAt, now, { addSuffix: true })}` 
-                    : tournament.status === 'draft'
-                      ? `Starts ${formatDistance(tournament.startAt, now, { addSuffix: true })}`
-                      : 'Finished'
+                    ? `Termina ${formatDistance(endDate, now, { addSuffix: true })}` 
+                    : tournament.status === 'upcoming'
+                      ? `Comienza ${formatDistance(startDate, now, { addSuffix: true })}`
+                      : 'Finalizado'
                   }
                 </p>
               </div>
@@ -169,12 +285,12 @@ export function TournamentDetails({
             <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
               <div>
                 <h3 className="font-medium text-blue-300">
-                  {userRegistration ? 'You are registered!' : 'Registration Open'}
+                  {userRegistration ? '¡Estás registrado!' : 'Registro Abierto'}
                 </h3>
                 <p className="text-sm text-slate-400 mt-1">
                   {userRegistration 
-                    ? 'Play ranked games to earn points and climb the leaderboard'
-                    : 'Join this tournament and start competing'
+                    ? 'Juega partidas para ganar puntos y subir en la clasificación'
+                    : 'Únete a este torneo y comienza a competir'
                   }
                 </p>
               </div>
@@ -184,7 +300,7 @@ export function TournamentDetails({
                   disabled={isRegistering}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {isRegistering ? 'Registering...' : 'Join Tournament'}
+                  {isRegistering ? 'Registrando...' : 'Unirse al Torneo'}
                 </Button>
               )}
             </div>
@@ -194,48 +310,61 @@ export function TournamentDetails({
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Tournament Rules */}
-        <Card className="tournament-card">
+        <Card className="border-slate-700 bg-slate-800/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Rules & Scoring
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Target className="w-5 h-5 text-blue-500" />
+              Reglas y Puntuación
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <h4 className="font-medium mb-2">Valid Queues</h4>
-              <div className="flex flex-wrap gap-2">
-                {tournament.queues.map((queueId) => (
-                  <Badge key={queueId} variant="outline">
-                    {QUEUE_NAMES[queueId] || `Queue ${queueId}`}
-                  </Badge>
-                ))}
+              <h4 className="font-medium mb-2 text-white">Sistema de Puntos</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Victoria</span>
+                  <span className="text-green-400">+{tournament.points_per_win} puntos</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Derrota</span>
+                  <span className="text-red-400">+{tournament.points_per_loss} puntos</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Primera Sangre</span>
+                  <span className="text-blue-400">+{tournament.points_first_blood} puntos</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Primera Torre</span>
+                  <span className="text-blue-400">+{tournament.points_first_tower} puntos</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Partida Perfecta</span>
+                  <span className="text-purple-400">+{tournament.points_perfect_game} puntos</span>
+                </div>
+                {tournament.max_games_per_day > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Máx. partidas por día</span>
+                    <span className="text-white">{tournament.max_games_per_day}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <Separator />
+            <Separator className="bg-slate-700" />
 
             <div>
-              <h4 className="font-medium mb-2">Point System</h4>
+              <h4 className="font-medium mb-2 text-white">Restricciones de Rango</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Win</span>
-                  <span className="text-green-400">+{tournament.scoringJson.winPoints} points</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Loss</span>
-                  <span className="text-red-400">+{tournament.scoringJson.lossPoints} points</span>
-                </div>
-                {tournament.scoringJson.kdaBonus && (
+                {tournament.min_rank !== 'NONE' && (
                   <div className="flex justify-between">
-                    <span className="text-slate-400">KDA ≥ {tournament.scoringJson.kdaBonus.threshold}</span>
-                    <span className="text-blue-400">+{tournament.scoringJson.kdaBonus.points} bonus</span>
+                    <span className="text-slate-400">Rango Mínimo</span>
+                    <span className="text-white">{tournament.min_rank}</span>
                   </div>
                 )}
-                {tournament.scoringJson.maxCountedMatches && (
+                {tournament.max_rank !== 'NONE' && (
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Max games counted</span>
-                    <span>{tournament.scoringJson.maxCountedMatches}</span>
+                    <span className="text-slate-400">Rango Máximo</span>
+                    <span className="text-white">{tournament.max_rank}</span>
                   </div>
                 )}
               </div>
@@ -244,16 +373,16 @@ export function TournamentDetails({
         </Card>
 
         {/* Mini Leaderboard */}
-        <Card className="tournament-card">
+        <Card className="border-slate-700 bg-slate-800/50">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Star className="w-5 h-5" />
-                Leaderboard
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Star className="w-5 h-5 text-yellow-500" />
+                Clasificación
               </CardTitle>
               <Button asChild variant="outline" size="sm">
                 <Link href={`/t/${tournament.id}/leaderboard`}>
-                  View Full
+                  Ver Completa
                 </Link>
               </Button>
             </div>
@@ -273,21 +402,21 @@ export function TournamentDetails({
                         {index + 1}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-medium">
-                          {entry.summoner_name || entry.display_name || entry.email}
+                        <span className="font-medium text-white">
+                          {entry.user_id}
                         </span>
                         <span className="text-xs text-slate-400">
-                          {entry.wins}W - {entry.losses}L • {entry.matches_played} games
+                          {entry.wins}V - {entry.losses}D • {entry.games_played} partidas
                         </span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="font-bold text-blue-400">
-                        {entry.total_points} pts
+                        {entry.points} pts
                       </span>
-                      {entry.avg_kda && (
+                      {entry.last_match_at && (
                         <div className="text-xs text-slate-400">
-                          KDA: {entry.avg_kda.toFixed(1)}
+                          Última partida: {formatDistance(new Date(entry.last_match_at), now, { addSuffix: true })}
                         </div>
                       )}
                     </div>
@@ -296,7 +425,7 @@ export function TournamentDetails({
               </div>
             ) : (
               <p className="text-slate-400 text-center py-4">
-                No participants yet
+                No hay participantes aún
               </p>
             )}
           </CardContent>

@@ -3,8 +3,22 @@ import { NextRequest, NextResponse } from 'next/server';
 const TWITCH_CLIENT_ID = 'ihnx3fyrg1ujytxpkzhtvy2jp7e35a';
 const TWITCH_CLIENT_SECRET = 'lh75pn8wc547z3p9dk6m3doffm4eyz';
 
+// Cache del token
+let tokenCache = {
+  accessToken: '',
+  expiresAt: 0
+};
+
 async function getTwitchAccessToken() {
-  console.log('🔑 Obteniendo token de Twitch...');
+  const now = Date.now();
+  
+  // Si el token existe y no ha expirado, usarlo
+  if (tokenCache.accessToken && tokenCache.expiresAt > now) {
+    return tokenCache.accessToken;
+  }
+
+  // Si no hay token o expiró, obtener uno nuevo
+  console.log('🔑 Obteniendo nuevo token de Twitch...');
   const response = await fetch(
     `https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
     {
@@ -13,8 +27,16 @@ async function getTwitchAccessToken() {
   );
 
   const data = await response.json();
-  console.log('✅ Token obtenido:', { ...data, access_token: '***' });
-  return data.access_token;
+  
+  // Guardar el token en caché
+  tokenCache = {
+    accessToken: data.access_token,
+    // Convertir expires_in (segundos) a timestamp y restar 1 hora por seguridad
+    expiresAt: now + (data.expires_in * 1000) - (3600 * 1000)
+  };
+
+  console.log('✅ Nuevo token obtenido y cacheado');
+  return tokenCache.accessToken;
 }
 
 export async function GET(request: NextRequest) {
@@ -43,7 +65,6 @@ export async function GET(request: NextRequest) {
     );
 
     const data = await response.json();
-    console.log('📺 Respuesta de Twitch:', data);
     const stream = data.data[0];
 
     return NextResponse.json({

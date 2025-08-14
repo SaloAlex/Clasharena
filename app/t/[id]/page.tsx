@@ -1,114 +1,136 @@
-import { prisma } from '@/lib/prisma';
-import { notFound, redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { TournamentDetails } from '@/components/TournamentDetails';
-import { supabaseServer } from '@/lib/supabase/server';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+interface Tournament {
+  id: string;
+  title: string;
+  description: string;
+  format: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  creator_id: string;
+  points_per_win: number;
+  points_per_loss: number;
+  points_first_blood: number;
+  points_first_tower: number;
+  points_perfect_game: number;
+  min_rank: string;
+  max_rank: string;
+  max_games_per_day: number;
+}
+
+interface TournamentRegistration {
+  id: string;
+  tournament_id: string;
+  user_id: string;
+  created_at: string;
+}
 
 interface LeaderboardEntry {
   user_id: string;
-  email: string;
-  display_name: string | null;
-  summoner_name: string | null;
-  region: string;
-  matches_played: number;
-  total_points: number;
+  points: number;
+  games_played: number;
   wins: number;
   losses: number;
-  avg_kda: number | null;
   last_match_at: string | null;
 }
 
-interface TournamentPageProps {
-  params: {
-    id: string;
-  };
-}
+export default function TournamentPage() {
+  const params = useParams();
+  const { user } = useAuth();
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [userRegistration, setUserRegistration] = useState<TournamentRegistration | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-async function getTournament(id: string) {
-  try {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id },
-      include: {
-        registrations: {
-          include: {
-            user: {
-              include: {
-                linkedAccounts: {
-                  where: { game: 'lol' },
-                },
-              },
-            },
-          },
-        },
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
-      },
-    });
+  useEffect(() => {
+    loadTournamentData();
+  }, [params.id]);
 
-    if (!tournament) {
-      notFound();
+  const loadTournamentData = async () => {
+    try {
+      // Cargar datos del torneo
+      const { data: tournamentData, error: tournamentError } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('id', params.id)
+        .single();
+
+      if (tournamentError) throw tournamentError;
+      if (!tournamentData) throw new Error('Torneo no encontrado');
+
+      setTournament(tournamentData);
+
+      // Cargar registro del usuario si está autenticado
+      if (user) {
+        const { data: registrationData, error: registrationError } = await supabase
+          .from('tournament_participants')
+          .select('*')
+          .eq('tournament_id', params.id)
+          .eq('user_id', user.id)
+          .single();
+
+        if (!registrationError) {
+          setUserRegistration(registrationData);
+        }
+      }
+
+      // Cargar tabla de clasificación
+      const { data: leaderboardData, error: leaderboardError } = await supabase
+        .from('tournament_participants')
+        .select(`
+          user_id,
+          points,
+          games_played,
+          wins,
+          losses,
+          joined_at
+        `)
+        .eq('tournament_id', params.id)
+        .order('points', { ascending: false })
+        .limit(50);
+
+      if (leaderboardError) throw leaderboardError;
+      setLeaderboard(leaderboardData || []);
+
+    } catch (error: any) {
+      console.error('Error loading tournament data:', error);
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    return tournament;
-  } catch (error) {
-    console.error('Error fetching tournament:', error);
-    throw new Error('Failed to load tournament');
+  if (isLoading) {
+    return (
+      <div className="min-h-screen py-8 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-slate-700 rounded w-1/4"></div>
+            <div className="h-4 bg-slate-700 rounded w-2/4"></div>
+            <div className="h-64 bg-slate-700 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
-}
 
-async function getUserRegistration(tournamentId: string, userId?: string) {
-  if (!userId) return null;
-  
-  return await prisma.tournamentRegistration.findUnique({
-    where: {
-      tournamentId_userId: {
-        tournamentId,
-        userId,
-      },
-    },
-  });
-}
-
-async function getLeaderboard(tournamentId: string): Promise<LeaderboardEntry[]> {
-  // Usar la consulta SQL optimizada para el leaderboard
-  const leaderboard = await prisma.$queryRaw<LeaderboardEntry[]>`
-    SELECT 
-      u.id as user_id,
-      u.email,
-      u.display_name,
-      la.summoner_name,
-      la.routing as region,
-      COUNT(DISTINCT tp.match_id) as matches_played,
-      SUM(tp.points) as total_points,
-      COUNT(CASE WHEN tp.reason = 'WIN' THEN 1 END) as wins,
-      COUNT(CASE WHEN tp.reason = 'LOSS' THEN 1 END) as losses,
-      AVG(mr.kda) as avg_kda,
-      MAX(tp.created_at) as last_match_at
-    FROM users u
-    INNER JOIN tournament_registrations tr ON u.id = tr.user_id
-    INNER JOIN linked_riot_accounts la ON u.id = la.user_id AND la.verified = true
-    LEFT JOIN tournament_points tp ON tr.tournament_id = tp.tournament_id AND tr.user_id = tp.user_id
-    LEFT JOIN match_records mr ON tp.match_id = mr.match_id
-    WHERE tr.tournament_id = ${tournamentId}
-    GROUP BY u.id, u.email, u.display_name, la.summoner_name, la.routing
-    ORDER BY total_points DESC, wins DESC, avg_kda DESC
-    LIMIT 50
-  `;
-
-  return leaderboard;
-}
-
-export default async function TournamentPage({ params }: TournamentPageProps) {
-  const tournament = await getTournament(params.id);
-  
-  // Obtener usuario del servidor
-  const supabase = supabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  const userRegistration = user ? await getUserRegistration(params.id, user.id) : null;
-  const leaderboard = await getLeaderboard(params.id);
+  if (!tournament) {
+    return (
+      <div className="min-h-screen py-8 px-4">
+        <div className="max-w-6xl mx-auto text-center">
+          <h1 className="text-2xl font-bold text-red-500">Torneo no encontrado</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8 px-4">

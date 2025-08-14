@@ -1,12 +1,9 @@
-"use client";
+'use client';
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // Cliente de Supabase para uso en el navegador
-export const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export const supabase = createClientComponentClient();
 
 // Auth helpers - Solo para uso en el cliente
 export async function signUp(email: string, password: string) {
