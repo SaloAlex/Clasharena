@@ -41,18 +41,8 @@ export async function middleware(request: NextRequest) {
         error,
       } = await supabase.auth.getSession();
 
-      console.log('🔍 MIDDLEWARE:', {
-        pathname,
-        hasSession: !!session,
-        userEmail: session?.user?.email,
-        error: error?.message,
-        cookieNames: request.cookies.getAll().map(c => c.name),
-        supabaseCookies: request.cookies.getAll().filter(c => c.name.startsWith('sb-')).map(c => c.name)
-      });
-
       // Si está en una ruta protegida y no tiene sesión, redirigir a auth
       if (isProtectedRoute && !session && !pathname.startsWith('/api/')) {
-        console.log('🚫 No session for protected route, redirecting to auth');
         const redirectUrl = new URL('/auth', request.url);
         redirectUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(redirectUrl);
@@ -61,7 +51,6 @@ export async function middleware(request: NextRequest) {
       // Si está en /auth y tiene sesión, redirigir
       if (pathname === '/auth' && session) {
         const redirectTo = request.nextUrl.searchParams.get('redirect') || '/tournaments';
-        console.log('✅ Has session, redirecting from /auth to:', redirectTo);
         return NextResponse.redirect(new URL(redirectTo, request.url));
       }
     }

@@ -98,18 +98,7 @@ export function Navigation() {
                     {user.email}
                   </div>
                   <DropdownMenuItem asChild>
-                    <Link 
-                      href="/link-riot" 
-                      className="flex items-center"
-                      onClick={(e) => {
-                        if (!user) {
-                          e.preventDefault();
-                          toast.error('Debes iniciar sesión primero');
-                        } else {
-                          console.log('🔍 Navigating to /link-riot with user:', user.email);
-                        }
-                      }}
-                    >
+                    <Link href="/link-riot" className="flex items-center">
                       <Trophy className="mr-2 h-4 w-4" />
                       Link Riot Account
                     </Link>

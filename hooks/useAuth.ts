@@ -23,11 +23,7 @@ export function useAuth() {
           supabase.auth.getSession()
         ]);
 
-        console.log('🔍 Initial auth state:', {
-          user: user?.email,
-          session: session?.user?.email,
-          hasSession: !!session
-        });
+
 
         setUser(user);
       } catch (error) {
@@ -43,7 +39,7 @@ export function useAuth() {
     // Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+
         setUser(session?.user ?? null);
         setLoading(false);
       }

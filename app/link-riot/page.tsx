@@ -43,6 +43,15 @@ export default function LinkRiotPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isLoadingMatches, setIsLoadingMatches] = useState(false);
+  const [matches, setMatches] = useState(() => {
+    // Intentar cargar las partidas desde localStorage al iniciar
+    if (typeof window !== 'undefined') {
+      const savedMatches = localStorage.getItem('riot_matches');
+      return savedMatches ? JSON.parse(savedMatches) : [];
+    }
+    return [];
+  });
   const [formData, setFormData] = useState({
     riotId: '',
     region: 'americas',
@@ -56,7 +65,11 @@ export default function LinkRiotPage() {
         const { data: { user } } = await supabase.auth.getUser();
         setIsAuthenticated(!!user);
         
-        // No redirigir aquí, dejar que el middleware maneje la autenticación
+        if (user) {
+          // Si el usuario está autenticado, cargar las partidas
+          handleLoadMatches();
+        }
+        
         console.log('Link Riot: User authenticated:', !!user);
       } catch (error) {
         console.error('Auth check error:', error);
@@ -67,6 +80,14 @@ export default function LinkRiotPage() {
     };
     
     checkAuth();
+  }, []);
+
+  // Cargar estado de verificación al iniciar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedVerified = localStorage.getItem('riot_verified') === 'true';
+      setIsVerified(savedVerified);
+    }
   }, []);
 
   // Timer para el desafío
@@ -89,16 +110,33 @@ export default function LinkRiotPage() {
     return () => clearInterval(interval);
   }, [challenge]);
 
-  // Parsear Riot ID
+  // Parsear y validar Riot ID
   const parseRiotId = (riotId: string) => {
     const parts = riotId.split('#');
     if (parts.length !== 2) {
       throw new Error('Riot ID debe tener el formato: gameName#tagLine');
     }
-    return {
-      gameName: parts[0].trim(),
-      tagLine: parts[1].trim()
-    };
+    
+    const gameName = parts[0].trim();
+    const tagLine = parts[1].trim();
+
+    // Validar gameName
+    if (gameName.length < 3 || gameName.length > 16) {
+      throw new Error('El nombre debe tener entre 3 y 16 caracteres');
+    }
+    if (!/^[0-9A-Za-z .]+$/.test(gameName)) {
+      throw new Error('El nombre solo puede contener letras, números, espacios y puntos');
+    }
+
+    // Validar tagLine
+    if (tagLine.length < 3 || tagLine.length > 5) {
+      throw new Error('El tagLine debe tener entre 3 y 5 caracteres');
+    }
+    if (!/^[0-9A-Za-z]+$/.test(tagLine)) {
+      throw new Error('El tagLine solo puede contener letras y números');
+    }
+
+    return { gameName, tagLine };
   };
 
   // Generar desafío
@@ -174,9 +212,12 @@ export default function LinkRiotPage() {
 
       if (data.verified) {
         setIsVerified(true);
+        localStorage.setItem('riot_verified', 'true');
         setChallenge(null);
         toast.success(data.message || '¡Cuenta verificada exitosamente!');
       } else {
+        setIsVerified(false);
+        localStorage.setItem('riot_verified', 'false');
         toast.error(data.reason || 'Verificación fallida');
       }
       
@@ -187,6 +228,36 @@ export default function LinkRiotPage() {
     }
   };
 
+  // Cargar partidas
+  const handleLoadMatches = async () => {
+    setIsLoadingMatches(true);
+    
+    try {
+      const response = await fetch('/api/riot/matches', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cargar partidas');
+      }
+
+      const newMatches = data.matches || [];
+      setMatches(newMatches);
+      // Guardar en localStorage
+      localStorage.setItem('riot_matches', JSON.stringify(newMatches));
+      
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoadingMatches(false);
+    }
+  };
+
   // Sincronizar partidas
   const handleSyncMatches = async () => {
     setIsSyncing(true);
@@ -194,7 +265,7 @@ export default function LinkRiotPage() {
     try {
       const response = await fetch('/api/riot/sync', {
         method: 'POST',
-        credentials: 'include', // 🔹 importante para enviar cookies
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json'
         }
@@ -207,6 +278,9 @@ export default function LinkRiotPage() {
       }
 
       toast.success(data.message || `Se sincronizaron ${data.newMatches} nuevas partidas`);
+      
+      // Cargar las partidas actualizadas
+      handleLoadMatches();
       
     } catch (error: any) {
       toast.error(error.message);
@@ -386,23 +460,87 @@ export default function LinkRiotPage() {
                     <span className="text-green-400 font-medium">Cuenta Verificada</span>
                   </div>
                   
-                  <Button
-                    onClick={handleSyncMatches}
-                    disabled={isSyncing}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {isSyncing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Sincronizando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Sincronizar Partidas
-                      </>
-                    )}
-                  </Button>
+                  <div className="space-y-4">
+                    <Button
+                      onClick={handleSyncMatches}
+                      disabled={isSyncing}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isSyncing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Sincronizando...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Sincronizar Partidas
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="p-4 bg-slate-700/50 rounded-lg space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-white">Últimas Partidas</h3>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleLoadMatches}
+                          disabled={isLoadingMatches}
+                          className="text-xs"
+                        >
+                          {isLoadingMatches ? 'Cargando...' : 'Actualizar'}
+                        </Button>
+                      </div>
+                      
+                      {matches.length > 0 ? (
+                        <div className="space-y-2">
+                          {matches.map((match) => (
+                            <div
+                              key={match.match_id}
+                              className={`flex items-center justify-between p-3 rounded ${
+                                match.details?.win ? 'bg-green-950/50' : 'bg-red-950/50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="text-sm">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-white font-medium">
+                                      {match.details?.champion || 'Unknown'}
+                                    </span>
+                                    <Badge variant="outline" className={`text-xs ${
+                                      match.details?.win ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                                    }`}>
+                                      {match.details?.win ? 'Victoria' : 'Derrota'}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-slate-400 text-xs space-x-2">
+                                    <span>{match.details?.gameMode || 'Unknown'}</span>
+                                    <span>•</span>
+                                    <span>{Math.floor((match.details?.gameDuration || 0) / 60)}m</span>
+                                    <span>•</span>
+                                    <span>{new Date(match.details?.gameCreation || 0).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-medium text-white mb-1">
+                                  {match.details?.kills}/{match.details?.deaths}/{match.details?.assists}
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  KDA: {match.details?.kda}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-slate-400 text-sm">
+                          No hay partidas sincronizadas
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ) : challenge ? (
                 <div className="space-y-4">
@@ -411,9 +549,24 @@ export default function LinkRiotPage() {
                       <Clock className="w-4 h-4 text-blue-500" />
                       <span className="text-blue-400 font-medium">Desafío Activo</span>
                     </div>
-                    <p className="text-sm text-white mb-2">
-                      Cambia tu ícono de invocador al <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/40">#{challenge.expectedIconId}</Badge>
-                    </p>
+                    <div className="text-sm text-white mb-4">
+                      <p className="mb-2">Cambia tu ícono de invocador a este:</p>
+                      <div className="flex flex-col items-center gap-2 p-4 bg-slate-700/50 rounded-lg">
+                        <img
+                          src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${challenge.expectedIconId}.png`}
+                          alt={`Ícono ${challenge.expectedIconId}`}
+                          className="w-20 h-20 rounded-lg border-2 border-blue-500/40"
+                        />
+                        <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/40">
+                          Ícono #{challenge.expectedIconId}
+                        </Badge>
+                        <p className="text-xs text-slate-400 text-center mt-2">
+                          Este es un ícono básico que todos los jugadores tienen disponible.
+                          <br />
+                          Puedes encontrarlo en la primera página de tus íconos.
+                        </p>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2 text-sm text-slate-400">
                       <Clock className="w-4 h-4" />
                       <span>Tiempo restante: {formatTime(timeLeft)}</span>

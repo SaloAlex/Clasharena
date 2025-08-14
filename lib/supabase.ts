@@ -21,24 +21,17 @@ export async function signUp(email: string, password: string) {
 
 export async function signIn(email: string, password: string) {
   try {
-    console.log('🔑 Attempting sign in for:', email);
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (error) {
-      console.error('❌ Supabase auth error:', error);
       throw error;
     }
     
-    console.log('✅ Sign in successful for:', data.user?.email);
-    console.log('🔑 Session data:', data.session);
-    
     return data;
   } catch (error: any) {
-    console.error('❌ Sign in error:', error);
     if (error.message === 'Failed to fetch') {
       throw new Error('Unable to connect to authentication service. Please check your internet connection and try again.');
     }

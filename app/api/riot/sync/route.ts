@@ -36,12 +36,18 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth(request);
     
     // Obtener la cuenta verificada del usuario
+    console.log('🔍 Buscando cuenta vinculada para:', user.id);
     const { data: linkedAccount, error: accountError } = await supabaseAdmin
       .from('linked_riot_accounts')
       .select('*')
-      .eq('userId', user.id)
+      .eq('user_id', user.id)
       .eq('verified', true)
       .single();
+
+    console.log('📋 Resultado:', {
+      account: linkedAccount,
+      error: accountError
+    });
 
     if (accountError || !linkedAccount) {
       return NextResponse.json(
@@ -64,9 +70,9 @@ export async function POST(request: NextRequest) {
     // Obtener los match IDs que ya están sincronizados
     const { data: existingMatches, error: existingError } = await supabaseAdmin
       .from('riot_matches')
-      .select('matchId')
-      .eq('userId', user.id)
-      .in('matchId', matchIds);
+      .select('match_id')
+      .eq('user_id', user.id)
+      .in('match_id', matchIds);
 
     if (existingError) {
       console.error('Error getting existing matches:', existingError);
@@ -76,8 +82,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingMatchIds = existingMatches?.map(m => m.matchId) || [];
+    console.log('📋 Partidas existentes:', existingMatches);
+    
+    const existingMatchIds = existingMatches?.map(m => m.match_id) || [];
     const newMatchIds = matchIds.filter(id => !existingMatchIds.includes(id));
+
+    console.log('🔍 Análisis de partidas:', {
+      total: matchIds.length,
+      existing: existingMatchIds.length,
+      new: newMatchIds.length
+    });
 
     if (newMatchIds.length === 0) {
       return NextResponse.json({
@@ -89,10 +103,10 @@ export async function POST(request: NextRequest) {
 
     // Insertar las nuevas partidas
     const matchesToInsert = newMatchIds.map(matchId => ({
-      userId: user.id,
+      user_id: user.id,
       puuid: linkedAccount.puuid,
-      matchId,
-      syncedAt: new Date().toISOString()
+      match_id: matchId,
+      synced_at: new Date().toISOString()
     }));
 
     const { error: insertError } = await supabaseAdmin

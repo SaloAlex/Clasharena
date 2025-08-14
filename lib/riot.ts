@@ -76,22 +76,39 @@ export async function getAccountByRiotId(gameName: string, tagLine: string, regi
     throw new Error('RIOT_API_KEY not configured');
   }
 
-  const url = `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
-  
-  const response = await fetchWithRetry(url);
-  
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Riot account not found. Please check your Riot ID and region.');
-    }
-    if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again in a few minutes.');
-    }
-    throw new Error(`Riot API error: ${response.status} ${response.statusText}`);
-  }
+  // Convertir región a mayúsculas
+  const upperRegion = region.toUpperCase();
+  console.log('🎮 Calling Riot API:', { gameName, tagLine, region: upperRegion });
 
-  const data = await response.json();
-  return data;
+  const url = `https://${upperRegion}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+  
+  try {
+    const response = await fetchWithRetry(url);
+    const responseText = await response.text();
+    
+    if (!response.ok) {
+      console.error('❌ Riot API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      });
+      
+      if (response.status === 404) {
+        throw new Error('Cuenta de Riot no encontrada. Verifica tu Riot ID y región.');
+      }
+      if (response.status === 429) {
+        throw new Error('Límite de peticiones excedido. Por favor, intenta de nuevo en unos minutos.');
+      }
+      throw new Error(`Error de la API de Riot: ${response.status} ${response.statusText}`);
+    }
+
+    const data = JSON.parse(responseText);
+    console.log('✅ Riot API response:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Error calling Riot API:', error);
+    throw error;
+  }
 }
 
 export async function getSummonerByPuuid(puuid: string, platform: string): Promise<Summoner> {
@@ -99,22 +116,116 @@ export async function getSummonerByPuuid(puuid: string, platform: string): Promi
     throw new Error('RIOT_API_KEY not configured');
   }
 
+  console.log('🎮 Buscando invocador:', { puuid, platform });
   const url = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}`;
   
-  const response = await fetchWithRetry(url);
-  
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error('Summoner not found for this PUUID.');
+  try {
+    const response = await fetchWithRetry(url);
+    const responseText = await response.text();
+    
+    if (!response.ok) {
+      console.error('❌ Error al buscar invocador:', {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      });
+      
+      if (response.status === 404) {
+        throw new Error('Summoner not found for this PUUID.');
+      }
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a few minutes.');
+      }
+      throw new Error(`Riot API error: ${response.status} ${response.statusText}`);
     }
-    if (response.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again in a few minutes.');
-    }
-    throw new Error(`Riot API error: ${response.status} ${response.statusText}`);
+
+    const data = JSON.parse(responseText);
+    console.log('✅ Invocador encontrado:', {
+      name: data.name,
+      profileIconId: data.profileIconId,
+      summonerLevel: data.summonerLevel
+    });
+    return data;
+  } catch (error) {
+    console.error('❌ Error al buscar invocador:', error);
+    throw error;
+  }
+}
+
+interface MatchDetails {
+  info: {
+    gameCreation: number;
+    gameDuration: number;
+    gameMode: string;
+    participants: {
+      puuid: string;
+      championId: number;
+      championName: string;
+      kills: number;
+      deaths: number;
+      assists: number;
+      win: boolean;
+    }[];
+  };
+}
+
+export async function getMatchDetails(matchId: string, region: string): Promise<MatchDetails> {
+  if (!RIOT_API_KEY) {
+    throw new Error('RIOT_API_KEY not configured');
   }
 
-  const data = await response.json();
-  return data;
+  if (!region) {
+    throw new Error('Región no especificada');
+  }
+
+  const url = `https://${region}.api.riotgames.com/lol/match/v5/matches/${matchId}`;
+  
+  console.log('🎮 Obteniendo detalles de partida:', {
+    matchId,
+    region,
+    url
+  });
+
+  try {
+    const response = await fetchWithRetry(url);
+    const responseText = await response.text();
+    
+    if (!response.ok) {
+      console.error('❌ Error al obtener detalles de partida:', {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      });
+      
+      if (response.status === 404) {
+        throw new Error('Partida no encontrada');
+      }
+      if (response.status === 429) {
+        throw new Error('Límite de peticiones excedido. Por favor, intenta de nuevo en unos minutos.');
+      }
+      throw new Error(`Error de la API de Riot: ${response.status} ${response.statusText}`);
+    }
+
+    const data = JSON.parse(responseText);
+    console.log('📊 Detalles de partida recibidos:', {
+      matchId: url.split('/').pop(),
+      gameMode: data.info.gameMode,
+      gameDuration: data.info.gameDuration,
+      gameCreation: data.info.gameCreation,
+      participants: data.info.participants.map(p => ({
+        puuid: p.puuid,
+        championName: p.championName,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        win: p.win
+      }))
+    });
+    return data;
+  } catch (error) {
+    console.error('❌ Error al obtener detalles de partida:', error);
+    throw error;
+  }
 }
 
 export async function getRecentMatchIds(puuid: string, region: string, count: number = 20): Promise<string[]> {
