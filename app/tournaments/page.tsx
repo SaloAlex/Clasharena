@@ -1,105 +1,203 @@
-// app/tournaments/page.tsx
-import { prisma } from '@/lib/prisma';
-import { TournamentCard } from '@/components/TournamentCard';
-import { Badge } from '@/components/ui/badge';
-import { Trophy } from 'lucide-react';
-import { Tournament, Prisma } from '@prisma/client';
+'use client';
 
-// Esto obliga a que Next.js ejecute todo del lado del servidor
-export const dynamic = 'force-dynamic';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Trophy, Calendar, Users, ArrowRight } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
-type TournamentWithCount = Tournament & {
-  _count: { registrations: number };
-};
-
-async function getTournaments(): Promise<TournamentWithCount[]> {
-  return prisma.tournament.findMany({
-    include: {
-      _count: { select: { registrations: true } },
-    },
-    orderBy: { startAt: 'desc' },
-  });
-}
-
-interface SectionProps {
+interface Tournament {
+  id: string;
   title: string;
-  badge: string;
-  badgeClass?: string;
-  badgeVariant?: 'outline' | 'secondary';
-  tournaments: TournamentWithCount[];
+  description: string;
+  format: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+  creator: {
+    email: string;
+  };
+  participants: {
+    count: number;
+  }[];
 }
 
-function Section({ title, badge, badgeClass, badgeVariant, tournaments }: SectionProps) {
-  return (
-    <section className="mb-12">
-      <div className="flex items-center gap-2 mb-6">
-        <h2 className="text-2xl font-bold">{title}</h2>
-        <Badge className={badgeClass} variant={badgeVariant}>{badge}</Badge>
-      </div>
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tournaments.map((t) => (
-          <TournamentCard key={t.id} tournament={t} participantCount={t._count.registrations} />
-        ))}
-      </div>
-    </section>
-  );
-}
+export default function TournamentsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-export default async function TournamentsPage() {
-  const tournaments = await getTournaments();
+  useEffect(() => {
+    loadTournaments();
+  }, []);
 
-  const activeTournaments = tournaments.filter(t => t.status === 'active');
-  const upcomingTournaments = tournaments.filter(t => t.status === 'draft');
-  const finishedTournaments = tournaments.filter(t => t.status === 'finished');
+  const loadTournaments = async () => {
+    try {
+      const response = await fetch('/api/tournaments');
+      const data = await response.json();
 
-  return (
-    <div className="min-h-screen py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-500/20 text-blue-300 text-sm font-medium mb-4">
-            <Trophy className="w-4 h-4 mr-2" />
-            {activeTournaments.length} Active Tournaments
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cargar torneos');
+      }
+
+      setTournaments(data);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getFormatLabel = (format: string) => {
+    const formats = {
+      'duration': 'Por Duración',
+      'league': 'Liga',
+      'elimination': 'Eliminación Directa',
+      'mixed': 'Mixto'
+    };
+    return formats[format as keyof typeof formats] || format;
+  };
+
+  const getStatusLabel = (status: string) => {
+    const statuses = {
+      'draft': 'Borrador',
+      'upcoming': 'Próximo',
+      'active': 'En Curso',
+      'completed': 'Completado',
+      'cancelled': 'Cancelado'
+    };
+    return statuses[status as keyof typeof statuses] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colors = {
+      'draft': 'bg-slate-500/20 text-slate-300',
+      'upcoming': 'bg-blue-500/20 text-blue-300',
+      'active': 'bg-green-500/20 text-green-300',
+      'completed': 'bg-purple-500/20 text-purple-300',
+      'cancelled': 'bg-red-500/20 text-red-300'
+    };
+    return colors[status as keyof typeof colors] || 'bg-slate-500/20 text-slate-300';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen py-8 px-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-48 bg-slate-800/50 rounded-lg" />
+            ))}
           </div>
-          <h1 className="text-4xl font-bold mb-4">League of Legends Tournaments</h1>
-          <p className="text-slate-400 max-w-2xl mx-auto">
-            Join competitive tournaments and climb the leaderboards by playing your favorite League of Legends ranked queues
-          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen py-8 px-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Torneos</h1>
+            <p className="text-slate-400">
+              Explora y participa en torneos de League of Legends
+            </p>
+          </div>
+          {user && (
+            <Button
+              onClick={() => router.push('/tournaments/create')}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Crear Torneo
+            </Button>
+          )}
         </div>
 
-        {activeTournaments.length > 0 && (
-          <Section
-            title="Active Tournaments"
-            badge="Live"
-            badgeClass="bg-green-500/20 text-green-400"
-            tournaments={activeTournaments}
-          />
-        )}
-
-        {upcomingTournaments.length > 0 && (
-          <Section
-            title="Upcoming Tournaments"
-            badge="Starting Soon"
-            badgeVariant="outline"
-            tournaments={upcomingTournaments}
-          />
-        )}
-
-        {finishedTournaments.length > 0 && (
-          <Section
-            title="Finished Tournaments"
-            badge="Completed"
-            badgeVariant="secondary"
-            tournaments={finishedTournaments}
-          />
-        )}
-
-        {tournaments.length === 0 && (
-          <div className="text-center py-16">
-            <Trophy className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-medium text-slate-400 mb-2">No tournaments available</h3>
-            <p className="text-slate-500">Check back later for new tournaments!</p>
-          </div>
-        )}
+        {/* Tournament List */}
+        <div className="space-y-6">
+          {tournaments.length > 0 ? (
+            tournaments.map((tournament) => (
+              <Card
+                key={tournament.id}
+                className="border-slate-700 bg-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer"
+                onClick={() => router.push(`/tournaments/${tournament.id}`)}
+              >
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-xl text-white mb-2">
+                        {tournament.title}
+                      </CardTitle>
+                      <CardDescription className="text-slate-400">
+                        {tournament.description}
+                      </CardDescription>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-sm ${getStatusColor(tournament.status)}`}>
+                      {getStatusLabel(tournament.status)}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-6 text-sm text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-blue-400" />
+                      <span>{getFormatLabel(tournament.format)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-400" />
+                      <span>{formatDate(tournament.start_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-blue-400" />
+                      <span>{tournament.participants[0]?.count || 0} participantes</span>
+                    </div>
+                    <div className="ml-auto">
+                      <Button variant="ghost" size="sm">
+                        Ver detalles
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="text-center py-12">
+              <Trophy className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-white mb-2">
+                No hay torneos disponibles
+              </h3>
+              <p className="text-slate-400 mb-4">
+                Sé el primero en crear un torneo
+              </p>
+              {user && (
+                <Button
+                  onClick={() => router.push('/tournaments/create')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Crear Torneo
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -3,12 +3,13 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { Navigation } from '@/components/Navigation';
+import { TwitchStatus } from '@/components/TwitchStatus';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'LoL Tournament Organizer',
-  description: 'Organize and participate in League of Legends tournaments with real match tracking',
+  title: 'ClashArenaGG - Comunidad TheFLAKOO',
+  description: 'La arena definitiva para torneos de League of Legends de la comunidad de TheFLAKOO',
 };
 
 export default function RootLayout({
@@ -24,6 +25,7 @@ export default function RootLayout({
           {children}
         </main>
         <Toaster position="bottom-right" />
+        <TwitchStatus />
       </body>
     </html>
   );

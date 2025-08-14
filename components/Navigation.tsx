@@ -37,12 +37,24 @@ export function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center space-x-2">
-              <Trophy className="w-8 h-8 text-blue-500" />
-              <span className="font-bold text-xl">LoL Tournaments</span>
+              <img 
+                src="/Logo.png" 
+                alt="ClashArenaGG Logo"
+                className="w-8 h-8 rounded-full"
+              />
+              <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-800">
+                ClashArenaGG
+              </span>
             </Link>
             <div className="hidden md:flex items-center space-x-8">
-              <div className="text-slate-300">Tournaments</div>
-              <div className="text-slate-300">Leaderboard</div>
+              <div className="text-slate-300 flex items-center">
+                <Trophy className="w-4 h-4 mr-1" />
+                Torneos
+              </div>
+              <div className="text-slate-300 flex items-center">
+                <Shield className="w-4 h-4 mr-1" />
+                Clasificación
+              </div>
             </div>
             <div className="w-8 h-8 bg-slate-700 rounded-full animate-pulse" />
           </div>
@@ -57,23 +69,54 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <Trophy className="w-8 h-8 text-blue-500" />
+                          <img 
+                src="/Logo.png" 
+                alt="ClashArenaGG Logo"
+                className="w-8 h-8 rounded-full"
+              />
             <span className="font-bold text-xl">LoL Tournaments</span>
           </Link>
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link 
-              href="/tournaments" 
-              className="text-slate-300 hover:text-white transition-colors"
-            >
-              Tournaments
-            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-slate-300 hover:text-white transition-colors">
+                <span className="flex items-center">
+                  <Trophy className="w-4 h-4 mr-1" />
+                  Torneos
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem asChild>
+                  <Link href="/tournaments" className="flex items-center">
+                    <Trophy className="mr-2 h-4 w-4" />
+                    Ver Torneos
+                  </Link>
+                </DropdownMenuItem>
+                {/* Solo TheFLAKOO puede crear torneos */}
+                {user?.email === 'dvdsalomon6@gmail.com' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/tournaments/create" className="flex items-center">
+                      <Trophy className="mr-2 h-4 w-4" />
+                      Crear Torneo
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link href="/tournaments/my" className="flex items-center">
+                    <Trophy className="mr-2 h-4 w-4" />
+                    Mis Torneos
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Link 
               href="/leaderboard" 
-              className="text-slate-300 hover:text-white transition-colors"
+              className="text-slate-300 hover:text-white transition-colors flex items-center"
             >
-              Leaderboard
+              <Shield className="w-4 h-4 mr-1" />
+              Clasificación
             </Link>
           </div>
 
