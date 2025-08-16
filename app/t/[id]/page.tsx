@@ -51,7 +51,12 @@ export default function TournamentPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadTournamentData();
+    if (typeof params.id === 'string') {
+      loadTournamentData();
+    } else {
+      setIsLoading(false);
+      toast.error('ID de torneo inválido');
+    }
   }, [params.id]);
 
   const loadTournamentData = async () => {

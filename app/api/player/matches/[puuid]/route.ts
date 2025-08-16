@@ -49,7 +49,7 @@ export async function GET(
     ]);
 
     // Crear mapeos para búsqueda rápida
-    const championMap = Object.values(championsData.data).reduce((acc: any, champion: any) => {
+    const championMap: { [key: string]: { name: string; title: string; image: string; } } = Object.values(championsData.data).reduce((acc, champion: any) => {
       acc[champion.key] = {
         name: champion.name,
         title: champion.title,

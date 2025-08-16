@@ -48,7 +48,11 @@ export default function TournamentsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
+    if (!dateString) return 'Fecha no disponible';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Fecha inválida';
+    
+    return date.toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -132,7 +136,10 @@ export default function TournamentsPage() {
               <Card
                 key={tournament.id}
                 className="border-slate-700 bg-slate-800/50 hover:bg-slate-800/70 transition-colors cursor-pointer"
-                onClick={() => router.push(`/t/${tournament.id}`)}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await router.push(`/t/${tournament.id}`);
+                }}
               >
                 <CardHeader>
                   <div className="flex justify-between items-start">

@@ -98,9 +98,13 @@ export function TournamentDetails({
     }
   };
   const now = new Date();
-  const startDate = new Date(tournament.start_date);
-  const endDate = new Date(tournament.end_date);
-  const isActive = tournament.status === 'active' && now >= startDate && now <= endDate;
+  const startDate = tournament.start_date ? new Date(tournament.start_date) : now;
+  const endDate = tournament.end_date ? new Date(tournament.end_date) : now;
+  const isActive = tournament.status === 'active' && 
+    !isNaN(startDate.getTime()) && 
+    !isNaN(endDate.getTime()) && 
+    now >= startDate && 
+    now <= endDate;
   const canRegister = isActive && !userRegistration && currentUser;
 
   const handleRegistration = async () => {
@@ -122,7 +126,11 @@ export function TournamentDetails({
       }
 
       toast.success('¡Registrado exitosamente en el torneo!');
-      window.location.reload();
+      const { data: registrationData } = await fetch(`/api/tournaments/${tournament.id}/register/${currentUser.id}`).then(res => res.json());
+      if (registrationData) {
+        setUserRegistration(registrationData);
+        router.refresh();
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -243,7 +251,9 @@ export function TournamentDetails({
               <div>
                 <p className="text-sm text-slate-400">Duración</p>
                 <p className="font-medium text-white">
-                  {formatDistance(startDate, endDate)}
+                  {!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) 
+                    ? formatDistance(startDate, endDate)
+                    : 'Duración no disponible'}
                 </p>
               </div>
             </div>
@@ -269,11 +279,13 @@ export function TournamentDetails({
               <div>
                 <p className="text-sm text-slate-400">Estado</p>
                 <p className="font-medium text-white">
-                  {isActive 
+                  {isActive && !isNaN(endDate.getTime())
                     ? `Termina ${formatDistance(endDate, now, { addSuffix: true })}` 
-                    : tournament.status === 'upcoming'
+                    : tournament.status === 'upcoming' && !isNaN(startDate.getTime())
                       ? `Comienza ${formatDistance(startDate, now, { addSuffix: true })}`
-                      : 'Finalizado'
+                      : tournament.status === 'completed'
+                        ? 'Finalizado'
+                        : 'Estado no disponible'
                   }
                 </p>
               </div>
@@ -416,7 +428,9 @@ export function TournamentDetails({
                       </span>
                       {entry.last_match_at && (
                         <div className="text-xs text-slate-400">
-                          Última partida: {formatDistance(new Date(entry.last_match_at), now, { addSuffix: true })}
+                          Última partida: {entry.last_match_at && !isNaN(new Date(entry.last_match_at).getTime()) 
+                            ? formatDistance(new Date(entry.last_match_at), now, { addSuffix: true })
+                            : 'fecha no disponible'}
                         </div>
                       )}
                     </div>

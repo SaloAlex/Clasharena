@@ -11,7 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { toast } from 'sonner';
-import { Trophy, Calendar, Medal, Settings } from 'lucide-react';
+import { Trophy, Calendar, Medal, Settings, Gamepad2, Gift, Scroll } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+
+interface QueueConfig {
+  enabled: boolean;
+  pointMultiplier: number;
+}
 
 interface TournamentFormData {
   title: string;
@@ -27,6 +34,19 @@ interface TournamentFormData {
   minRank: string;
   maxRank: string;
   maxGamesPerDay: number;
+  queues: {
+    ranked_solo: QueueConfig;
+    ranked_flex: QueueConfig;
+    normal_draft: QueueConfig;
+    normal_blind: QueueConfig;
+    aram: QueueConfig;
+  };
+  customRules: string;
+  prizes: {
+    first: string;
+    second: string;
+    third: string;
+  };
 }
 
 export default function CreateTournamentPage() {
@@ -47,7 +67,17 @@ export default function CreateTournamentPage() {
     pointsPerfectGame: 50,
     minRank: 'NONE',
     maxRank: 'NONE',
-    maxGamesPerDay: 0
+    maxGamesPerDay: 0,
+    queues: {
+      ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
+      ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 }
+    },
+    customRules: '',
+    prizes: {
+      first: '',
+      second: '',
+      third: ''
+    }
   });
 
   // Redirección segura en efecto (no durante el render)
@@ -60,11 +90,93 @@ export default function CreateTournamentPage() {
   // Evita parpadeo: si hay usuario y no es admin, no renderizamos el form
   if (user && user.email !== 'dvdsalomon6@gmail.com') return null;
 
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    // Validar título y descripción
+    if (formData.title.trim().length < 3) {
+      errors.title = 'El título debe tener al menos 3 caracteres';
+    }
+    if (formData.description.trim().length < 10) {
+      errors.description = 'La descripción debe tener al menos 10 caracteres';
+    }
+
+    // Validar fechas
+    const now = new Date();
+    if (formData.startDate < now) {
+      errors.startDate = 'La fecha de inicio debe ser futura';
+    }
+    if (formData.endDate <= formData.startDate) {
+      errors.endDate = 'La fecha de fin debe ser posterior a la fecha de inicio';
+    }
+
+    // Validar puntos
+    if (formData.pointsPerWin < 0) {
+      errors.pointsPerWin = 'Los puntos por victoria no pueden ser negativos';
+    }
+    if (formData.pointsPerLoss < 0) {
+      errors.pointsPerLoss = 'Los puntos por derrota no pueden ser negativos';
+    }
+    if (formData.pointsFirstBlood < 0) {
+      errors.pointsFirstBlood = 'Los puntos por primera sangre no pueden ser negativos';
+    }
+    if (formData.pointsFirstTower < 0) {
+      errors.pointsFirstTower = 'Los puntos por primera torre no pueden ser negativos';
+    }
+    if (formData.pointsPerfectGame < 0) {
+      errors.pointsPerfectGame = 'Los puntos por partida perfecta no pueden ser negativos';
+    }
+
+    // Validar rangos
+    const ranks = ['NONE', 'IRON', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER'];
+    if (formData.minRank !== 'NONE' && formData.maxRank !== 'NONE') {
+      const minRankIndex = ranks.indexOf(formData.minRank);
+      const maxRankIndex = ranks.indexOf(formData.maxRank);
+      if (minRankIndex > maxRankIndex) {
+        errors.minRank = 'El rango mínimo no puede ser mayor que el máximo';
+        errors.maxRank = 'El rango máximo no puede ser menor que el mínimo';
+      }
+    }
+
+    // Validar partidas por día
+    if (formData.maxGamesPerDay < 0) {
+      errors.maxGamesPerDay = 'El límite de partidas no puede ser negativo';
+    }
+
+    // Validar que al menos una cola esté habilitada
+    const hasEnabledQueue = Object.values(formData.queues).some(queue => queue.enabled);
+    if (!hasEnabledQueue) {
+      errors.queues = 'Debes habilitar al menos una cola de juego';
+    }
+
+    setFormErrors(errors);
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      const errorMessages = Object.entries(errors)
+        .map(([field, message]) => `• ${message}`)
+        .join('\n');
+      toast.error(
+        <div>
+          <p className="font-bold mb-2">Por favor, corrige los siguientes errores:</p>
+          <pre className="text-sm whitespace-pre-wrap">{errorMessages}</pre>
+        </div>,
+        { duration: 5000 }
+      );
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      console.log('Sending form data:', formData);
       const response = await fetch('/api/tournaments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -72,10 +184,12 @@ export default function CreateTournamentPage() {
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error al crear el torneo');
+      console.log('Response status:', response.status);
+      console.log('Response data:', data);
+      if (!response.ok) throw new Error(data || 'Error al crear el torneo');
 
       toast.success('¡Torneo creado exitosamente!');
-      router.push(`/tournaments/${data.id}`);
+      router.push(`/t/${data.id}`);
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -113,11 +227,22 @@ export default function CreateTournamentPage() {
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (formErrors.title) {
+                      setFormErrors({ ...formErrors, title: '' });
+                    }
+                  }}
                   placeholder="Nombre del torneo"
-                  className="bg-slate-700 border-slate-600 text-white"
+                  className={cn(
+                    "bg-slate-700 border-slate-600 text-white",
+                    formErrors.title && "border-red-500"
+                  )}
                   required
                 />
+                {formErrors.title && (
+                  <p className="text-sm text-red-500 mt-1">{formErrors.title}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -171,17 +296,83 @@ export default function CreateTournamentPage() {
                   <Label htmlFor="startDate" className="text-white">Fecha de Inicio</Label>
                   <DateTimePicker
                     value={formData.startDate}
-                    onChange={(date: Date) => setFormData({ ...formData, startDate: date })}
+                    onChange={(date: Date) => {
+                      setFormData({ ...formData, startDate: date });
+                      if (formErrors.startDate) {
+                        setFormErrors({ ...formErrors, startDate: '' });
+                      }
+                    }}
+                    minDate={new Date()}
+                    error={formErrors.startDate}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate" className="text-white">Fecha de Fin</Label>
                   <DateTimePicker
                     value={formData.endDate}
-                    onChange={(date: Date) => setFormData({ ...formData, endDate: date })}
+                    onChange={(date: Date) => {
+                      setFormData({ ...formData, endDate: date });
+                      if (formErrors.endDate) {
+                        setFormErrors({ ...formErrors, endDate: '' });
+                      }
+                    }}
+                    minDate={formData.startDate}
+                    error={formErrors.endDate}
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Colas de Juego */}
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Gamepad2 className="w-5 h-5 text-blue-500" />
+                Colas de Juego
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Selecciona qué tipos de partida contarán para el torneo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {Object.entries(formData.queues).map(([queueKey, queueConfig]) => {
+                const queueNames = {
+                  ranked_solo: 'Ranked Solo/Duo',
+                  ranked_flex: 'Ranked Flex'
+                };
+                
+                return (
+                  <div key={queueKey} className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-white">{queueNames[queueKey as keyof typeof queueNames]}</Label>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-slate-400">
+                          Multiplicador: {queueConfig.pointMultiplier}x puntos
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          (ID: {queueConfig.id})
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={queueConfig.enabled}
+                      onCheckedChange={(checked) => {
+                        setFormData({
+                          ...formData,
+                          queues: {
+                            ...formData.queues,
+                            [queueKey]: {
+                              ...queueConfig,
+                              enabled: checked
+                            }
+                          }
+                        });
+                      }}
+                    />
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -192,7 +383,7 @@ export default function CreateTournamentPage() {
                 <Medal className="w-5 h-5 text-blue-500" />
                 Sistema de Puntos
               </CardTitle>
-              <CardDescription className="text-slate-400">Configura cómo se otorgan los puntos</CardDescription>
+              <CardDescription className="text-slate-400">Configura cómo se otorgan los puntos base</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -316,6 +507,81 @@ export default function CreateTournamentPage() {
                   value={formData.maxGamesPerDay}
                   onChange={(e) => setFormData({ ...formData, maxGamesPerDay: parseInt(e.target.value || '0', 10) })}
                   placeholder="0 = Sin límite"
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reglas Personalizadas */}
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Scroll className="w-5 h-5 text-blue-500" />
+                Reglas Personalizadas
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Agrega reglas específicas para tu torneo
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={formData.customRules}
+                onChange={(e) => setFormData({ ...formData, customRules: e.target.value })}
+                placeholder="Ejemplo: No se permiten smurfs, las partidas deben ser transmitidas, etc..."
+                className="bg-slate-700 border-slate-600 text-white min-h-[100px]"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Premios */}
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Gift className="w-5 h-5 text-blue-500" />
+                Premios
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Define los premios para los ganadores
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstPrize" className="text-white">Primer Lugar</Label>
+                <Input
+                  id="firstPrize"
+                  value={formData.prizes.first}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    prizes: { ...formData.prizes, first: e.target.value }
+                  })}
+                  placeholder="Premio para el primer lugar"
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="secondPrize" className="text-white">Segundo Lugar</Label>
+                <Input
+                  id="secondPrize"
+                  value={formData.prizes.second}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    prizes: { ...formData.prizes, second: e.target.value }
+                  })}
+                  placeholder="Premio para el segundo lugar"
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="thirdPrize" className="text-white">Tercer Lugar</Label>
+                <Input
+                  id="thirdPrize"
+                  value={formData.prizes.third}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    prizes: { ...formData.prizes, third: e.target.value }
+                  })}
+                  placeholder="Premio para el tercer lugar"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>

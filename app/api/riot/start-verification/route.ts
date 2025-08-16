@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { RiotAPI } from '@/lib/riot/api';
-import { REGIONS } from '@/lib/riot/constants';
+const VALID_PLATFORMS = ['LA1', 'LA2', 'NA1', 'BR1'];
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
@@ -32,9 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar que la plataforma es válida
-    const isValidPlatform = REGIONS.some(region => 
-      region.platforms.some(p => p.value === platform)
-    );
+    const isValidPlatform = VALID_PLATFORMS.includes(platform);
     
     if (!isValidPlatform) {
       return NextResponse.json(

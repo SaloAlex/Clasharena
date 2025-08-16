@@ -9,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Gamepad2, Shield, Link as LinkIcon } from 'lucide-react';
 import { VerificationChallengeModal } from '@/components/riot/VerificationChallengeModal';
-import { REGIONS } from '@/lib/riot/constants';
+const PLATFORMS = [
+  { value: 'LA2', label: 'LAS (LA2)' },
+  { value: 'LA1', label: 'LAN (LA1)' },
+  { value: 'NA1', label: 'NA (NA1)' },
+  { value: 'BR1', label: 'BR (BR1)' }
+];
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function LinkRiotPage() {
@@ -29,7 +34,6 @@ export default function LinkRiotPage() {
   
   const [formData, setFormData] = useState({
     riotId: '',
-    region: 'americas',
     platform: 'LA2'
   });
 
@@ -237,38 +241,6 @@ export default function LinkRiotPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="region" className="text-sm font-medium text-white">
-                  Región
-                </label>
-                <Select
-                  value={formData.region}
-                  onValueChange={(value) => {
-                    const region = REGIONS.find(r => r.value === value);
-                    setFormData({
-                      ...formData,
-                      region: value,
-                      platform: region?.platforms[0]?.value || ''
-                    });
-                  }}
-                >
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    {REGIONS.map((region) => (
-                      <SelectItem
-                        key={region.value}
-                        value={region.value}
-                        className="text-white"
-                      >
-                        {region.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <label htmlFor="platform" className="text-sm font-medium text-white">
                   Plataforma
                 </label>
@@ -280,7 +252,7 @@ export default function LinkRiotPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
-                    {REGIONS.find(r => r.value === formData.region)?.platforms.map((platform) => (
+                    {PLATFORMS.map((platform) => (
                       <SelectItem
                         key={platform.value}
                         value={platform.value}
@@ -326,9 +298,9 @@ export default function LinkRiotPage() {
                 </p>
               </div>
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-white">2. Selecciona tu región y plataforma</h3>
+                <h3 className="text-sm font-medium text-white">2. Selecciona tu plataforma</h3>
                 <p className="text-sm text-slate-400">
-                  Elige tu región (Americas, Europa, etc.) y la plataforma donde juegas (LAS, LAN, NA, etc.)
+                  Elige la plataforma donde juegas (LAS, LAN, NA, BR)
                 </p>
               </div>
               <div className="space-y-2">
