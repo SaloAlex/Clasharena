@@ -7,12 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Gamepad2, Link as LinkIcon, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
+import { MatchHistory } from '@/components/MatchHistory';
 
 interface RiotAccount {
   game_name: string;
   tag_line: string;
   platform: string;
   verified: boolean;
+  puuid: string;
 }
 
 export default function ProfilePage() {
@@ -188,6 +190,11 @@ export default function ProfilePage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Historial de Partidas */}
+        {riotAccount?.verified && riotAccount.puuid && (
+          <MatchHistory puuid={riotAccount.puuid} />
+        )}
       </div>
     </div>
   );

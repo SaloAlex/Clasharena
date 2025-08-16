@@ -29,15 +29,8 @@ export async function GET(
       );
     }
 
-    // Configurar routing basado en el PUUID
-    let routing: 'AMERICAS' | 'EUROPE' | 'ASIA';
-    if (puuid.startsWith('NA') || puuid.startsWith('BR') || puuid.startsWith('LAN') || puuid.startsWith('LAS')) {
-      routing = 'AMERICAS';
-    } else if (puuid.startsWith('EUW') || puuid.startsWith('EUNE') || puuid.startsWith('TR') || puuid.startsWith('RU')) {
-      routing = 'EUROPE';
-    } else {
-      routing = 'ASIA';
-    }
+    // Por ahora asumimos que todos los usuarios son de AMERICAS
+    const routing = 'AMERICAS';
 
     riotApi.setRouting(routing);
 
@@ -60,7 +53,7 @@ export async function GET(
       acc[champion.key] = {
         name: champion.name,
         title: champion.title,
-        image: champion.image.full
+        image: `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/${champion.image.full}`
       };
       return acc;
     }, {});
@@ -75,7 +68,7 @@ export async function GET(
 
     // Obtener detalles de las partidas
     const matches = await Promise.all(
-      matchIds.slice(0, Math.min(count, 5)).map(async (matchId: string) => {
+      matchIds.slice(0, Math.min(count, 20)).map(async (matchId: string) => {
         try {
           const matchData = await riotApi.getMatch(matchId);
           const player = matchData.info.participants.find((p: any) => p.puuid === puuid);
