@@ -22,6 +22,14 @@ const nextConfig = {
       },
     ];
   },
+  // Configuración de webpack para ignorar warnings específicos
+  webpack: (config) => {
+    // Ignorar el warning de dependencia crítica de Supabase Realtime
+    config.ignoreWarnings = [
+      { message: /Critical dependency: the request of a dependency is an expression/ }
+    ];
+    return config;
+  },
 };
 
 module.exports = nextConfig;

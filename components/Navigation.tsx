@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, Settings, LogOut, Shield } from 'lucide-react';
+import { Trophy, Settings, LogOut, Shield, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -141,9 +141,9 @@ export function Navigation() {
                     {user.email}
                   </div>
                   <DropdownMenuItem asChild>
-                    <Link href="/link-riot" className="flex items-center">
-                      <Trophy className="mr-2 h-4 w-4" />
-                      Link Riot Account
+                    <Link href="/profile" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Mi Perfil
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

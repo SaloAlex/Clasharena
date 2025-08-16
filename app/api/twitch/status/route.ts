@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     );
 
     const data = await response.json();
-    const stream = data.data[0];
+    const stream = data.data && data.data.length > 0 ? data.data[0] : null;
 
     return NextResponse.json({
       isLive: !!stream,
