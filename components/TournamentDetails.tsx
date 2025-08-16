@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,11 +17,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
-import { Trophy, Calendar, Users, Target, Clock, Star } from 'lucide-react';
+import { Trophy, Calendar, Users, Target, Clock, Star, UserPlus } from 'lucide-react';
+import { TournamentParticipants } from '@/components/TournamentParticipants';
+import { TournamentLeaderboard } from '@/components/TournamentLeaderboard';
 import { formatDistance } from 'date-fns';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface Tournament {
   id: string;
@@ -29,8 +32,8 @@ interface Tournament {
   description: string;
   format: string;
   status: string;
-  start_date: string;
-  end_date: string;
+  start_at: string;
+  end_at: string;
   creator_id: string;
   points_per_win: number;
   points_per_loss: number;
@@ -67,13 +70,15 @@ interface TournamentDetailsProps {
 
 export function TournamentDetails({ 
   tournament, 
-  userRegistration, 
+  userRegistration: initialUserRegistration, 
   leaderboard, 
   currentUser 
 }: TournamentDetailsProps) {
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const supabase = createClientComponentClient();
+  const [userRegistration, setUserRegistration] = useState<TournamentRegistration | null>(initialUserRegistration);
 
   const handleDelete = async () => {
     if (isDeleting) return;
@@ -98,14 +103,86 @@ export function TournamentDetails({
     }
   };
   const now = new Date();
-  const startDate = tournament.start_date ? new Date(tournament.start_date) : now;
-  const endDate = tournament.end_date ? new Date(tournament.end_date) : now;
+  const startDate = tournament.start_at ? new Date(tournament.start_at) : now;
+  const endDate = tournament.end_at ? new Date(tournament.end_at) : now;
+  
+  // Formatear la duración en español
+  const formatDuration = () => {
+    const hours = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+    if (hours === 24) return '24 horas';
+    if (hours < 24) return `${hours} horas`;
+    const days = Math.floor(hours / 24);
+    return `${days} ${days === 1 ? 'día' : 'días'}`;
+  };
+
+  // Formatear el estado en español
+  const formatStatus = () => {
+    // Si el torneo está activo, mostrar cuándo comenzó
+    if (now >= startDate && now <= endDate) {
+      const minutesAgo = Math.round((now.getTime() - startDate.getTime()) / (1000 * 60));
+      if (minutesAgo <= 1) return 'Comenzó hace menos de un minuto';
+      if (minutesAgo < 60) return `Comenzó hace ${minutesAgo} minutos`;
+      const hoursAgo = Math.floor(minutesAgo / 60);
+      if (hoursAgo < 24) return `Comenzó hace ${hoursAgo} ${hoursAgo === 1 ? 'hora' : 'horas'}`;
+      const daysAgo = Math.floor(hoursAgo / 24);
+      return `Comenzó hace ${daysAgo} ${daysAgo === 1 ? 'día' : 'días'}`;
+    }
+    
+    // Si el torneo no ha comenzado
+    if (now < startDate) {
+      const minutesToStart = Math.round((startDate.getTime() - now.getTime()) / (1000 * 60));
+      if (minutesToStart <= 1) return 'Comienza en menos de un minuto';
+      if (minutesToStart < 60) return `Comienza en ${minutesToStart} minutos`;
+      const hoursToStart = Math.floor(minutesToStart / 60);
+      if (hoursToStart < 24) return `Comienza en ${hoursToStart} ${hoursToStart === 1 ? 'hora' : 'horas'}`;
+      const daysToStart = Math.floor(hoursToStart / 24);
+      return `Comienza en ${daysToStart} ${daysToStart === 1 ? 'día' : 'días'}`;
+    }
+    
+    // Si el torneo ya terminó
+    if (now > endDate) {
+      return 'Finalizado';
+    }
+
+    // Estados específicos
+    switch (tournament.status) {
+      case 'active': return 'En curso';
+      case 'finished': return 'Finalizado';
+      case 'cancelled': return 'Cancelado';
+      default: return 'Estado no disponible';
+    }
+  };
+
   const isActive = tournament.status === 'active' && 
     !isNaN(startDate.getTime()) && 
     !isNaN(endDate.getTime()) && 
     now >= startDate && 
     now <= endDate;
-  const canRegister = isActive && !userRegistration && currentUser;
+  // Verificar si el usuario actual está en la lista de participantes
+  const [isParticipant, setIsParticipant] = useState(false);
+
+  useEffect(() => {
+    const checkParticipation = async () => {
+      if (!currentUser) return;
+
+      const { data } = await supabase
+        .from('tournament_registrations')
+        .select('id')
+        .eq('tournament_id', tournament.id)
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
+
+      setIsParticipant(!!data);
+    };
+
+    checkParticipation();
+  }, [tournament.id, currentUser?.id]);
+
+  const canRegister = currentUser && !isParticipant && 
+    (tournament.status === 'upcoming' || tournament.status === 'active') &&
+    now <= endDate;
+
+
 
   const handleRegistration = async () => {
     if (!currentUser) {
@@ -125,12 +202,12 @@ export function TournamentDetails({
         throw new Error(error.message || 'Error al registrarse');
       }
 
-      toast.success('¡Registrado exitosamente en el torneo!');
-      const { data: registrationData } = await fetch(`/api/tournaments/${tournament.id}/register/${currentUser.id}`).then(res => res.json());
-      if (registrationData) {
-        setUserRegistration(registrationData);
-        router.refresh();
-      }
+      const result = await response.json();
+      toast.success(result.message || '¡Registrado exitosamente en el torneo!');
+      
+      // Actualizar el estado local
+      setIsParticipant(true);
+      router.refresh();
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -252,7 +329,7 @@ export function TournamentDetails({
                 <p className="text-sm text-slate-400">Duración</p>
                 <p className="font-medium text-white">
                   {!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) 
-                    ? formatDistance(startDate, endDate)
+                    ? formatDuration()
                     : 'Duración no disponible'}
                 </p>
               </div>
@@ -270,7 +347,7 @@ export function TournamentDetails({
               <Users className="w-5 h-5 text-purple-400" />
               <div>
                 <p className="text-sm text-slate-400">Participantes</p>
-                <p className="font-medium text-white">{leaderboard.length}</p>
+                <p className="font-medium text-white">1</p>
               </div>
             </div>
 
@@ -279,44 +356,49 @@ export function TournamentDetails({
               <div>
                 <p className="text-sm text-slate-400">Estado</p>
                 <p className="font-medium text-white">
-                  {isActive && !isNaN(endDate.getTime())
-                    ? `Termina ${formatDistance(endDate, now, { addSuffix: true })}` 
-                    : tournament.status === 'upcoming' && !isNaN(startDate.getTime())
-                      ? `Comienza ${formatDistance(startDate, now, { addSuffix: true })}`
-                      : tournament.status === 'completed'
-                        ? 'Finalizado'
-                        : 'Estado no disponible'
-                  }
+                  {formatStatus()}
                 </p>
               </div>
             </div>
           </div>
 
           {/* Registration Status & Action */}
-          {isActive && (
-            <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <div>
-                <h3 className="font-medium text-blue-300">
-                  {userRegistration ? '¡Estás registrado!' : 'Registro Abierto'}
-                </h3>
-                <p className="text-sm text-slate-400 mt-1">
-                  {userRegistration 
-                    ? 'Juega partidas para ganar puntos y subir en la clasificación'
-                    : 'Únete a este torneo y comienza a competir'
-                  }
-                </p>
+          <div className="space-y-6">
+            {(canRegister || isParticipant) && (
+              <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <div>
+                  <h3 className="font-medium text-blue-300">
+                    {isParticipant ? '¡Estás registrado!' : 'Registro Abierto'}
+                  </h3>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {isParticipant 
+                      ? 'Juega partidas para ganar puntos y subir en la clasificación'
+                      : 'Únete a este torneo y comienza a competir'
+                    }
+                  </p>
+                </div>
+                {canRegister && (
+                  <Button 
+                    onClick={handleRegistration}
+                    disabled={isRegistering}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isRegistering ? (
+                      'Registrando...'
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Unirse al Torneo
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
-              {canRegister && (
-                <Button 
-                  onClick={handleRegistration}
-                  disabled={isRegistering}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isRegistering ? 'Registrando...' : 'Unirse al Torneo'}
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+
+            {/* Lista de Participantes */}
+            <TournamentParticipants tournamentId={tournament.id} />
+          </div>
         </CardContent>
       </Card>
 
@@ -384,66 +466,8 @@ export function TournamentDetails({
           </CardContent>
         </Card>
 
-        {/* Mini Leaderboard */}
-        <Card className="border-slate-700 bg-slate-800/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-white">
-                <Star className="w-5 h-5 text-yellow-500" />
-                Clasificación
-              </CardTitle>
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/t/${tournament.id}/leaderboard`}>
-                  Ver Completa
-                </Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {leaderboard.length > 0 ? (
-              <div className="space-y-3">
-                {leaderboard.slice(0, 5).map((entry, index) => (
-                  <div key={entry.user_id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                        index === 0 ? 'bg-yellow-500 text-black' :
-                        index === 1 ? 'bg-gray-400 text-black' :
-                        index === 2 ? 'bg-orange-600 text-white' :
-                        'bg-slate-600 text-slate-300'
-                      }`}>
-                        {index + 1}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-white">
-                          {entry.user_id}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {entry.wins}V - {entry.losses}D • {entry.games_played} partidas
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-blue-400">
-                        {entry.points} pts
-                      </span>
-                      {entry.last_match_at && (
-                        <div className="text-xs text-slate-400">
-                          Última partida: {entry.last_match_at && !isNaN(new Date(entry.last_match_at).getTime()) 
-                            ? formatDistance(new Date(entry.last_match_at), now, { addSuffix: true })
-                            : 'fecha no disponible'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-400 text-center py-4">
-                No hay participantes aún
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Tournament Leaderboard */}
+        <TournamentLeaderboard tournamentId={tournament.id} showCompleteButton={true} />
       </div>
     </div>
   );

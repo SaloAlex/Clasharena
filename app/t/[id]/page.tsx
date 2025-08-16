@@ -13,8 +13,8 @@ interface Tournament {
   description: string;
   format: string;
   status: string;
-  start_date: string;
-  end_date: string;
+  start_at: string;
+  end_at: string;
   creator_id: string;
   points_per_win: number;
   points_per_loss: number;
@@ -53,11 +53,34 @@ export default function TournamentPage() {
   useEffect(() => {
     if (typeof params.id === 'string') {
       loadTournamentData();
+
+      // Suscribirse a cambios en registros del usuario actual
+      if (user) {
+        const channel = supabase
+          .channel('registration_status')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'tournament_registrations',
+              filter: `tournament_id=eq.${params.id} AND user_id=eq.${user.id}`
+            },
+            () => {
+              loadTournamentData();
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }
     } else {
       setIsLoading(false);
       toast.error('ID de torneo inválido');
     }
-  }, [params.id]);
+  }, [params.id, user?.id]);
 
   const loadTournamentData = async () => {
     try {
@@ -75,35 +98,26 @@ export default function TournamentPage() {
 
       // Cargar registro del usuario si está autenticado
       if (user) {
+        console.log('Checking registration for user:', user.id);
         const { data: registrationData, error: registrationError } = await supabase
-          .from('tournament_participants')
+          .from('tournament_registrations')
           .select('*')
           .eq('tournament_id', params.id)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (!registrationError) {
-          setUserRegistration(registrationData);
-        }
+        console.log('Registration data:', registrationData);
+        console.log('Registration error:', registrationError);
+
+        // Siempre actualizar el estado, incluso si es null
+        setUserRegistration(registrationData);
+      } else {
+        console.log('No user found');
       }
 
-      // Cargar tabla de clasificación
-      const { data: leaderboardData, error: leaderboardError } = await supabase
-        .from('tournament_participants')
-        .select(`
-          user_id,
-          points,
-          games_played,
-          wins,
-          losses,
-          joined_at
-        `)
-        .eq('tournament_id', params.id)
-        .order('points', { ascending: false })
-        .limit(50);
-
-      if (leaderboardError) throw leaderboardError;
-      setLeaderboard(leaderboardData || []);
+      // TODO: Cargar tabla de clasificación cuando tengamos la tabla de participantes
+      // Por ahora, usar array vacío
+      setLeaderboard([]);
 
     } catch (error: any) {
       console.error('Error loading tournament data:', error);
