@@ -216,17 +216,42 @@ export function TournamentDetails({
   };
 
   const getStatusBadge = () => {
+    // Determinar el estado basado en las fechas
+    const now = new Date();
+    const startDate = new Date(tournament.start_at);
+    const endDate = new Date(tournament.end_at);
+
+    let currentStatus = 'unknown';
+    
+    if (tournament.status === 'cancelled') {
+      currentStatus = 'cancelled';
+    } else if (now < startDate) {
+      currentStatus = 'upcoming';
+    } else if (now >= startDate && now <= endDate) {
+      currentStatus = 'active';
+    } else if (now > endDate) {
+      currentStatus = 'completed';
+    }
+
     const statusColors = {
-      'draft': 'bg-slate-500/20 text-slate-300',
+      'unknown': 'bg-slate-500/20 text-slate-300',
       'upcoming': 'bg-blue-500/20 text-blue-300',
       'active': 'bg-green-500/20 text-green-300',
       'completed': 'bg-purple-500/20 text-purple-300',
       'cancelled': 'bg-red-500/20 text-red-300'
     };
 
+    const statusLabels = {
+      'unknown': 'Desconocido',
+      'upcoming': 'Próximo',
+      'active': 'Activo',
+      'completed': 'Finalizado',
+      'cancelled': 'Cancelado'
+    };
+
     return (
-      <Badge className={statusColors[tournament.status as keyof typeof statusColors] || statusColors.draft}>
-        {tournament.status.charAt(0).toUpperCase() + tournament.status.slice(1)}
+      <Badge className={statusColors[currentStatus]}>
+        {statusLabels[currentStatus]}
       </Badge>
     );
   };
