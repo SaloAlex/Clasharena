@@ -70,7 +70,10 @@ export default function CreateTournamentPage() {
     maxGamesPerDay: 0,
     queues: {
       ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
-      ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 }
+      ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
+      normal_draft: { enabled: false, pointMultiplier: 0.6, id: 400 },
+      normal_blind: { enabled: false, pointMultiplier: 0.5, id: 430 },
+      aram: { enabled: false, pointMultiplier: 0.4, id: 450 }
     },
     customRules: '',
     prizes: {
@@ -339,7 +342,10 @@ export default function CreateTournamentPage() {
               {Object.entries(formData.queues).map(([queueKey, queueConfig]) => {
                 const queueNames = {
                   ranked_solo: 'Ranked Solo/Duo',
-                  ranked_flex: 'Ranked Flex'
+                  ranked_flex: 'Ranked Flex',
+                  normal_draft: 'Normal Draft',
+                  normal_blind: 'Normal Blind Pick',
+                  aram: 'ARAM'
                 };
                 
                 return (
