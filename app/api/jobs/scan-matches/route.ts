@@ -1,71 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { riotApi } from '@/lib/riot/client';
-import { calculatePoints } from '@/lib/scoring';
+
+interface MatchResult {
+  win: boolean;
+  firstBlood: boolean;
+  firstTower: boolean;
+  perfectGame: boolean;
+  queueId: number;
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+
     // Obtener todos los torneos activos
-    const activeTournaments = await prisma.tournament.findMany({
-      where: {
-        status: 'active',
-        startAt: { lte: new Date() },
-        endAt: { gte: new Date() },
-      },
-      include: {
-        registrations: {
-          include: {
-            user: {
-              include: {
-                linkedAccounts: {
-                  where: { game: 'lol' },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const { data: activeTournaments, error: tournamentsError } = await supabase
+      .from('tournaments')
+      .select(`
+        *,
+        tournament_registrations (
+          user_id,
+          registered_at,
+          riot_accounts (
+            puuid,
+            platform
+          )
+        )
+      `)
+      .eq('status', 'active')
+      .lt('start_at', new Date().toISOString())
+      .gt('end_at', new Date().toISOString());
+
+    if (tournamentsError) throw tournamentsError;
 
     let processedMatches = 0;
     let newPoints = 0;
 
-    for (const tournament of activeTournaments) {
-      console.log(`Processing tournament: ${tournament.name}`);
+    for (const tournament of activeTournaments || []) {
+      console.log(`Procesando torneo: ${tournament.title}`);
 
-      for (const registration of tournament.registrations) {
-        const linkedAccount = registration.user.linkedAccounts[0];
-        if (!linkedAccount) continue;
+      // Obtener configuración de colas habilitadas
+      const queues = tournament.queues || {};
+      const enabledQueueIds = Object.entries(queues)
+        .filter(([_, config]: [string, any]) => config.enabled)
+        .map(([_, config]: [string, any]) => config.id);
+
+      for (const registration of tournament.tournament_registrations) {
+        const riotAccount = registration.riot_accounts?.[0];
+        if (!riotAccount?.puuid) continue;
 
         try {
-          // Obtener la última partida procesada para este usuario en este torneo
-          const lastProcessedMatch = await prisma.matchRecord.findFirst({
-            where: {
-              puuid: linkedAccount.puuid,
-            },
-            orderBy: {
-              gameStart: 'desc',
-            },
-          });
+          // Obtener última partida procesada
+          const { data: lastMatch } = await supabase
+            .from('match_records')
+            .select('game_start')
+            .eq('puuid', riotAccount.puuid)
+            .order('game_start', { ascending: false })
+            .limit(1)
+            .single();
 
-          // Configurar el cliente de Riot API para la región correcta
-          riotApi.setRouting(linkedAccount.routing as any);
+          // Configurar región
+          riotApi.setRouting(riotAccount.platform);
 
           // Obtener partidas recientes
           const matchIds = await riotApi.getMatchIds({
-            puuid: linkedAccount.puuid,
-            startTime: lastProcessedMatch 
-              ? lastProcessedMatch.gameStart + 1 
-              : Math.floor(registration.registeredAt.getTime()),
-            endTime: Math.floor(tournament.endAt.getTime()),
-            count: 20, // Procesar hasta 20 partidas por vez
+            puuid: riotAccount.puuid,
+            startTime: lastMatch 
+              ? Math.floor(new Date(lastMatch.game_start).getTime() / 1000)
+              : Math.floor(new Date(registration.registered_at).getTime() / 1000),
+            endTime: Math.floor(new Date(tournament.end_at).getTime() / 1000),
+            count: 20,
           });
 
           for (const matchId of matchIds) {
             // Verificar si ya procesamos esta partida
-            const existingMatch = await prisma.matchRecord.findUnique({
-              where: { matchId },
-            });
+            const { data: existingMatch } = await supabase
+              .from('match_records')
+              .select('id')
+              .eq('match_id', matchId)
+              .single();
 
             if (existingMatch) continue;
 
@@ -74,90 +89,106 @@ export async function POST(request: NextRequest) {
             
             // Encontrar al jugador en la partida
             const player = matchData.info.participants.find(
-              (p: any) => p.puuid === linkedAccount.puuid
+              (p: any) => p.puuid === riotAccount.puuid
             );
 
             if (!player) continue;
 
-            // Verificar si la cola es válida para el torneo
-            if (!tournament.queues.includes(matchData.info.queueId)) {
+            // Verificar si la cola está habilitada
+            if (!enabledQueueIds.includes(matchData.info.queueId)) {
               continue;
             }
 
-            // Verificar si la partida está dentro de la ventana del torneo
-            const gameStartTime = matchData.info.gameStartTimestamp;
-            if (gameStartTime < registration.registeredAt.getTime() || 
-                gameStartTime > tournament.endAt.getTime()) {
+            // Verificar si la partida está dentro del periodo del torneo
+            const gameStartTime = new Date(matchData.info.gameStartTimestamp);
+            if (gameStartTime < new Date(registration.registered_at) || 
+                gameStartTime > new Date(tournament.end_at)) {
               continue;
             }
 
-            // Calcular duración en segundos
-            const durationSec = Math.floor(matchData.info.gameDuration);
-
-            // Calcular KDA
-            const kda = player.deaths > 0 
-              ? (player.kills + player.assists) / player.deaths 
-              : player.kills + player.assists;
-
-            // Guardar el registro de la partida
-            await prisma.matchRecord.create({
-              data: {
-                matchId,
-                puuid: linkedAccount.puuid,
-                routing: linkedAccount.routing,
-                queue: matchData.info.queueId,
-                gameStart: BigInt(gameStartTime),
-                durationSec,
+            // Guardar registro de la partida
+            const { error: matchError } = await supabase
+              .from('match_records')
+              .insert({
+                match_id: matchId,
+                puuid: riotAccount.puuid,
+                platform: riotAccount.platform,
+                queue_id: matchData.info.queueId,
+                game_start: gameStartTime.toISOString(),
+                duration_sec: matchData.info.gameDuration,
                 win: player.win,
-                kda: kda,
-                championId: player.championId,
-                processedAt: new Date(),
-              },
-            });
+                kills: player.kills,
+                deaths: player.deaths,
+                assists: player.assists,
+                champion_id: player.championId,
+              });
 
-            // Calcular puntos según la configuración del torneo
-            const scoringConfig = tournament.scoringJson as any;
-            const scoreResult = calculatePoints(
-              {
-                win: player.win,
-                kda: kda,
-                durationSec: durationSec,
-              },
-              scoringConfig
-            );
+            if (matchError) throw matchError;
 
-            // Verificar si ya tenemos puntos para esta partida
-            const existingPoints = await prisma.tournamentPoint.findMany({
-              where: {
-                tournamentId: tournament.id,
-                userId: registration.userId,
-                matchId,
-              },
-            });
+            // Encontrar el multiplicador para esta cola
+            const queueConfig = Object.values(queues).find((q: any) => q.id === matchData.info.queueId);
+            const multiplier = queueConfig?.pointMultiplier || 1;
 
-            if (existingPoints.length === 0 && scoreResult.points > 0) {
-              // Crear puntos para cada razón
-              for (const reason of scoreResult.reasons) {
-                await prisma.tournamentPoint.create({
-                  data: {
-                    tournamentId: tournament.id,
-                    userId: registration.userId,
-                    matchId,
-                    points: scoreResult.points / scoreResult.reasons.length, // Dividir puntos por razón
-                    reason,
-                    createdAt: new Date(),
-                  },
+            // Calcular puntos base
+            const matchResult: MatchResult = {
+              win: player.win,
+              firstBlood: player.firstBloodKill || player.firstBloodAssist,
+              firstTower: player.firstTowerKill || player.firstTowerAssist,
+              perfectGame: player.deaths === 0 && player.assists > 0,
+              queueId: matchData.info.queueId
+            };
+
+            let points = 0;
+            const reasons: string[] = [];
+
+            if (matchResult.win) {
+              points += tournament.points_per_win;
+              reasons.push('victoria');
+            } else {
+              points += tournament.points_per_loss;
+              reasons.push('derrota');
+            }
+
+            if (matchResult.firstBlood) {
+              points += tournament.points_first_blood;
+              reasons.push('primera_sangre');
+            }
+
+            if (matchResult.firstTower) {
+              points += tournament.points_first_tower;
+              reasons.push('primera_torre');
+            }
+
+            if (matchResult.perfectGame) {
+              points += tournament.points_perfect_game;
+              reasons.push('partida_perfecta');
+            }
+
+            // Aplicar multiplicador de cola
+            points = Math.round(points * multiplier);
+
+            if (points > 0) {
+              // Guardar puntos
+              const { error: pointsError } = await supabase
+                .from('tournament_points')
+                .insert({
+                  tournament_id: tournament.id,
+                  user_id: registration.user_id,
+                  match_id: matchId,
+                  points,
+                  reasons,
                 });
-              }
 
-              newPoints += scoreResult.points;
+              if (pointsError) throw pointsError;
+
+              newPoints += points;
             }
 
             processedMatches++;
           }
 
         } catch (error) {
-          console.error(`Error processing user ${registration.userId}:`, error);
+          console.error(`Error procesando usuario ${registration.user_id}:`, error);
           continue;
         }
       }
@@ -167,15 +198,14 @@ export async function POST(request: NextRequest) {
       success: true,
       processedMatches,
       newPoints,
-      tournamentsProcessed: activeTournaments.length,
+      tournamentsProcessed: activeTournaments?.length || 0,
     });
 
   } catch (error) {
-    console.error('Error in scan-matches job:', error);
+    console.error('Error en scan-matches:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }
 }
-

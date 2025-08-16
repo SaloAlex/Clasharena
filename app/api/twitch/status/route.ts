@@ -18,7 +18,6 @@ async function getTwitchAccessToken() {
   }
 
   // Si no hay token o expiró, obtener uno nuevo
-  console.log('🔑 Obteniendo nuevo token de Twitch...');
   const response = await fetch(
     `https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
     {
@@ -34,8 +33,6 @@ async function getTwitchAccessToken() {
     // Convertir expires_in (segundos) a timestamp y restar 1 hora por seguridad
     expiresAt: now + (data.expires_in * 1000) - (3600 * 1000)
   };
-
-  console.log('✅ Nuevo token obtenido y cacheado');
   return tokenCache.accessToken;
 }
 

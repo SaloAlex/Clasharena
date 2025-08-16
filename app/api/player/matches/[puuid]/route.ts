@@ -78,9 +78,24 @@ export async function GET(
           const champion = championMap[player.championId] || { name: 'Unknown', title: '', image: '' };
           const queue = queueMap[matchData.info.queueId] || { description: 'Unknown Queue', map: 'Unknown' };
 
+          // Convertir la posición a un formato más amigable
+          let position = 'Invalid';
+          if (matchData.info.queueId === 420) { // Cola clasificatoria
+            position = player.individualPosition || player.lane || 'Invalid';
+          } else if (matchData.info.queueId === 450) { // ARAM
+            position = 'ARAM';
+          } else if (matchData.info.queueId === 400) { // Normal Draft
+            position = player.individualPosition || player.lane || 'Invalid';
+          } else if (matchData.info.queueId === 430) { // Normal Blind
+            position = player.individualPosition || player.lane || 'Invalid';
+          }
+
+          // Asegurarnos de que gameCreation sea un timestamp válido
+          const gameCreation = matchData.info.gameStartTimestamp || matchData.info.gameCreation;
+          
           return {
             matchId: matchId,
-            gameCreation: matchData.info.gameCreation,
+            gameCreation: gameCreation,
             gameDuration: Math.floor(matchData.info.gameDuration / 60), // en minutos
             queue: {
               id: matchData.info.queueId,
@@ -102,11 +117,11 @@ export async function GET(
               cs: player.totalMinionsKilled + player.neutralMinionsKilled,
               gold: player.goldEarned,
               damageDealt: player.totalDamageDealtToChampions,
-              visionScore: player.visionScore
+              visionScore: player.visionScore || 0
             },
             team: {
               teamId: player.teamId,
-              position: player.individualPosition,
+              position: position,
               lane: player.lane
             }
           };

@@ -1,9 +1,11 @@
 import { getRoutingRegion } from './routing';
-import { withRiotApiRetry } from './rate-limit';
+import { withRiotApiRetry, DEFAULT_LIMITS } from './rate-limit';
 
 export interface RateLimitConfig {
-  personalLimits: number[];
-  applicationLimits: number[];
+  method: string;
+  endpoint: string;
+  limit: number;
+  windowMs: number;
 }
 
 export class RiotAPIClient {
@@ -19,7 +21,7 @@ export class RiotAPIClient {
     this.baseUrl = `https://${region}.api.riotgames.com`;
   }
 
-  private async request<T>(endpoint: string): Promise<T> {
+  private async request<T>(endpoint: string, config: RateLimitConfig): Promise<T> {
     return withRiotApiRetry(async () => {
       const url = `${this.baseUrl}${endpoint}`;
       
@@ -38,7 +40,7 @@ export class RiotAPIClient {
       }
 
       return response.json();
-    });
+    }, config);
   }
 
   async getMatchIds(params: {
@@ -59,41 +61,55 @@ export class RiotAPIClient {
     });
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    return this.request<string[]>(`/lol/match/v5/matches/by-puuid/${params.puuid}/ids${queryString}`);
+    return this.request<string[]>(
+      `/lol/match/v5/matches/by-puuid/${params.puuid}/ids${queryString}`,
+      DEFAULT_LIMITS['GET-matchIds']
+    );
   }
 
   async getMatch(matchId: string): Promise<any> {
-    return this.request(`/lol/match/v5/matches/${matchId}`);
+    return this.request(
+      `/lol/match/v5/matches/${matchId}`,
+      DEFAULT_LIMITS['GET-matches']
+    );
   }
 
   async getSummonerByPuuid(puuid: string, region: string): Promise<any> {
     const baseUrl = `https://${region}.api.riotgames.com`;
-    const response = await fetch(`${baseUrl}/lol/summoner/v4/summoners/by-puuid/${puuid}`, {
-      headers: {
-        'X-Riot-Token': this.apiKey,
-      },
-    });
+    const config = DEFAULT_LIMITS['GET-summoner'];
     
-    if (!response.ok) {
-      throw new Error(`Summoner API error: ${response.status} ${response.statusText}`);
-    }
-    
-    return response.json();
+    return withRiotApiRetry(async () => {
+      const response = await fetch(`${baseUrl}/lol/summoner/v4/summoners/by-puuid/${puuid}`, {
+        headers: {
+          'X-Riot-Token': this.apiKey,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Summoner API error: ${response.status} ${response.statusText}`);
+      }
+      
+      return response.json();
+    }, config);
   }
 
   async getLeagueEntries(summonerId: string, region: string): Promise<any> {
     const baseUrl = `https://${region}.api.riotgames.com`;
-    const response = await fetch(`${baseUrl}/lol/league/v4/entries/by-summoner/${summonerId}`, {
-      headers: {
-        'X-Riot-Token': this.apiKey,
-      },
-    });
+    const config = DEFAULT_LIMITS['GET-summoner']; // Usar los mismos límites que summoner
     
-    if (!response.ok) {
-      throw new Error(`League API error: ${response.status} ${response.statusText}`);
-    }
-    
-    return response.json();
+    return withRiotApiRetry(async () => {
+      const response = await fetch(`${baseUrl}/lol/league/v4/entries/by-summoner/${summonerId}`, {
+        headers: {
+          'X-Riot-Token': this.apiKey,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`League API error: ${response.status} ${response.statusText}`);
+      }
+      
+      return response.json();
+    }, config);
   }
 
   async getChampions(): Promise<any> {

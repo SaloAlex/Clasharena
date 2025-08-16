@@ -404,17 +404,43 @@ export function TournamentDetails({
           <div className="space-y-6">
             {(canRegister || isParticipant) && (
               <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                <div>
-                  <h3 className="font-medium text-blue-300">
-                    {isParticipant ? '¡Estás registrado!' : 'Registro Abierto'}
-                  </h3>
-                  <p className="text-sm text-slate-400 mt-1">
-                    {isParticipant 
-                      ? 'Juega partidas para ganar puntos y subir en la clasificación'
-                      : 'Únete a este torneo y comienza a competir'
-                    }
-                  </p>
-                </div>
+                              <div>
+                <h3 className="font-medium text-blue-300">
+                  {isParticipant ? '¡Estás registrado!' : 'Registro Abierto'}
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  {isParticipant 
+                    ? 'Juega partidas para ganar puntos y subir en la clasificación'
+                    : 'Únete a este torneo y comienza a competir'
+                  }
+                </p>
+                {isParticipant && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/tournaments/${tournament.id}/scan`, {
+                          method: 'POST'
+                        });
+                        if (!response.ok) throw new Error('Error al escanear partidas');
+                        const data = await response.json();
+                        if (data.newPoints > 0) {
+                          toast.success(`¡Se encontraron ${data.processedMatches} partidas nuevas! (+${data.newPoints} puntos)`);
+                        } else {
+                          toast.info('No se encontraron partidas nuevas');
+                        }
+                        router.refresh();
+                      } catch (error) {
+                        toast.error('Error al escanear partidas');
+                      }
+                    }}
+                  >
+                    🔄 Buscar Partidas Nuevas
+                  </Button>
+                )}
+              </div>
                 {canRegister && (
                   <Button 
                     onClick={handleRegistration}

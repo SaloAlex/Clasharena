@@ -67,6 +67,11 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
 
   useEffect(() => {
     loadMatches();
+    
+    // Actualizar cada 2 minutos
+    const interval = setInterval(loadMatches, 2 * 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, [puuid]);
 
   const loadMatches = async () => {
@@ -74,6 +79,7 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
       setIsLoading(true);
       setError(null);
 
+      // Obtener las últimas 20 partidas
       const response = await fetch(`/api/player/matches/${puuid}?count=20`, {
         credentials: 'include'
       });
@@ -328,8 +334,9 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                     <p className="text-sm text-slate-400">
                       {formatDistance(new Date(match.gameCreation), new Date(), {
                         addSuffix: true,
-                        locale: es
-                      })}
+                        locale: es,
+                        includeSeconds: true
+                      }).replace('dentro de', 'hace')}
                     </p>
                   </div>
                 </div>

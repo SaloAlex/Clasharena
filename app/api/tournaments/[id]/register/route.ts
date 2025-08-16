@@ -82,12 +82,13 @@ export async function POST(
       );
     }
 
-    // Crear el registro
+    // Crear el registro con la cuenta de Riot vinculada
     const { data: registration, error: registrationError } = await supabase
       .from('tournament_registrations')
       .insert({
         tournament_id: tournamentId,
         user_id: session.user.id,
+        riot_account_id: riotAccount.id,
         registered_at: new Date().toISOString()
       })
       .select()
