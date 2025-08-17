@@ -21,39 +21,39 @@ export default function HomePage() {
 
   const features = [
     {
-      icon: <Trophy className="w-6 h-6 text-red-500" />,
+      icon: <Trophy className="w-6 h-6 text-cyan-400" />,
       title: "Batallas en la Arena",
       description: "Demuestra tu valía en torneos épicos organizados por TheFLAKOO con mecánicas únicas y premios exclusivos."
     },
     {
-      icon: <Twitch className="w-6 h-6 text-red-500" />,
+      icon: <Twitch className="w-6 h-6 text-purple-400" />,
       title: "Rewards por Ver Stream",
       description: "Gana puntos extra y beneficios especiales por ver el stream mientras juegas torneos."
     },
     {
-      icon: <TrendingUp className="w-6 h-6 text-red-500" />,
+      icon: <TrendingUp className="w-6 h-6 text-cyan-400" />,
       title: "Ranking de Gladiadores",
       description: "Asciende en la clasificación de la arena y conviértete en una leyenda con nuestro sistema de puntos."
     },
     {
-      icon: <Medal className="w-6 h-6 text-red-500" />,
+      icon: <Medal className="w-6 h-6 text-purple-400" />,
       title: "Perfil de Campeón",
       description: "Exhibe tus victorias, títulos y medallas ganadas en la arena con tu perfil personalizado."
     },
     {
-      icon: <Users className="w-6 h-6 text-red-500" />,
+      icon: <Users className="w-6 h-6 text-cyan-400" />,
       title: "Forma tu Legión",
       description: "Recluta guerreros, forma tu equipo de élite y domina juntos la arena."
     },
     {
-      icon: <Star className="w-6 h-6 text-red-500" />,
+      icon: <Star className="w-6 h-6 text-purple-400" />,
       title: "Privilegios de Campeón",
       description: "Desbloquea poderes especiales y acceso VIP siendo un guerrero activo en la arena."
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-neutral-900 to-red-950">
+    <div className="min-h-screen bg-gradient-to-br from-black via-purple-950 to-cyan-950">
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         {/* Background Pattern */}
@@ -66,14 +66,14 @@ export default function HomePage() {
                 <img 
                   src="/Logo.png" 
                   alt="ClashArenaGG Logo" 
-                  className="w-24 h-24 rounded-full border-4 border-red-600 shadow-lg shadow-red-600/50"
+                  className="w-24 h-24 rounded-full border-4 border-purple-600 shadow-lg shadow-cyan-500/50"
                 />
-                <h1 className="text-4xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-800">
+                <h1 className="text-4xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">
                   ClashArenaGG
                 </h1>
               </div>
               <div className="flex items-center justify-center gap-2 mb-4">
-                <Twitch className="w-8 h-8 text-red-500" />
+                <Twitch className="w-8 h-8 text-cyan-400" />
                 <p className="text-2xl sm:text-3xl font-medium text-white">
                   Comunidad Oficial de TheFLAKOO
                 </p>
@@ -86,7 +86,7 @@ export default function HomePage() {
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={() => window.open('https://www.twitch.tv/theflakoo', '_blank')}
-                  className="bg-red-600 hover:bg-red-700 text-lg px-8 py-6"
+                  className="bg-purple-600 hover:bg-purple-700 text-lg px-8 py-6"
                 >
                   <Twitch className="w-5 h-5 mr-2" />
                   Seguir en Twitch
@@ -94,7 +94,7 @@ export default function HomePage() {
                 {user ? (
                   <Button
                     onClick={() => router.push('/tournaments')}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-lg px-8 py-6"
+                    className="bg-cyan-600 hover:bg-cyan-700 text-lg px-8 py-6"
                   >
                     <Trophy className="w-5 h-5 mr-2" />
                     Ver Torneos
@@ -102,7 +102,7 @@ export default function HomePage() {
                 ) : (
                   <Button
                     onClick={() => router.push('/auth')}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-lg px-8 py-6"
+                    className="bg-cyan-600 hover:bg-cyan-700 text-lg px-8 py-6"
                   >
                     Empezar Ahora
                     <ArrowRight className="w-5 h-5 ml-2" />
@@ -150,7 +150,7 @@ export default function HomePage() {
       {/* CTA Section */}
       <div className="py-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-blue-600/20 rounded-2xl p-8 sm:p-12 relative overflow-hidden">
+          <div className="bg-purple-600/20 rounded-2xl p-8 sm:p-12 relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10" />
             
@@ -160,7 +160,7 @@ export default function HomePage() {
                   <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                     ¿Listo para entrar a la arena?
                   </h2>
-                  <p className="text-lg text-blue-200 mb-0 lg:mb-0">
+                  <p className="text-lg text-purple-200 mb-0 lg:mb-0">
                     Únete a la comunidad de TheFLAKOO y demuestra tu valor en nuestros torneos
                   </p>
                 </div>
@@ -168,7 +168,7 @@ export default function HomePage() {
                   {user ? (
                     <Button
                       onClick={() => router.push('/tournaments')}
-                      className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8 py-6"
+                      className="bg-white text-purple-600 hover:bg-purple-50 text-lg px-8 py-6"
                     >
                       <Trophy className="w-5 h-5 mr-2" />
                       Ver Próximos Torneos
@@ -176,7 +176,7 @@ export default function HomePage() {
                   ) : (
                     <Button
                       onClick={() => router.push('/auth')}
-                      className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8 py-6"
+                      className="bg-white text-purple-600 hover:bg-purple-50 text-lg px-8 py-6"
                     >
                       Empezar Ahora
                       <ArrowRight className="w-5 h-5 ml-2" />
@@ -194,19 +194,19 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-4xl font-bold text-red-500 mb-2">50+</div>
+              <div className="text-4xl font-bold text-cyan-400 mb-2">50+</div>
               <div className="text-slate-400">Gladiadores Legendarios</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-red-600 mb-2">1,000+</div>
+              <div className="text-4xl font-bold text-purple-400 mb-2">1,000+</div>
               <div className="text-slate-400">Guerreros en la Arena</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-red-700 mb-2">5,000+</div>
+              <div className="text-4xl font-bold text-cyan-500 mb-2">5,000+</div>
               <div className="text-slate-400">Batallas Épicas</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-red-800 mb-2">100+</div>
+              <div className="text-4xl font-bold text-purple-500 mb-2">100+</div>
               <div className="text-slate-400">Campeones Coronados</div>
             </div>
           </div>

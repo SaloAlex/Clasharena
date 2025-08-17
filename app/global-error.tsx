@@ -19,8 +19,8 @@ export default function GlobalError({
           <div className="w-full max-w-md">
             <Card className="border-slate-700 bg-slate-800/50">
               <CardHeader className="text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/20">
-                  <AlertCircle className="h-6 w-6 text-red-500" />
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-purple-500/20">
+                  <AlertCircle className="h-6 w-6 text-purple-500" />
                 </div>
                 <CardTitle className="text-xl text-white">Algo salió mal</CardTitle>
                 <CardDescription className="text-slate-400">

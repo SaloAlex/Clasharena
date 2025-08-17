@@ -1,6 +1,6 @@
-# LoL Tournament Organizer - MVP
+# ClashArenaGG - La Arena Definitiva
 
-Un organizador de torneos de League of Legends con tracking automático de partidas y leaderboards en tiempo real.
+La plataforma definitiva para torneos de League of Legends con tracking automático de partidas y leaderboards en tiempo real.
 
 ## 🎯 Características del MVP
 

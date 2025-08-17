@@ -42,16 +42,16 @@ export function Navigation() {
                 alt="ClashArenaGG Logo"
                 className="w-8 h-8 rounded-full"
               />
-              <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-red-800">
+              <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">
                 ClashArenaGG
               </span>
             </Link>
             <div className="hidden md:flex items-center space-x-8">
-              <div className="text-slate-300 flex items-center">
+              <div className="text-cyan-400 flex items-center hover:text-cyan-300 transition-colors">
                 <Trophy className="w-4 h-4 mr-1" />
                 Torneos
               </div>
-              <div className="text-slate-300 flex items-center">
+              <div className="text-purple-400 flex items-center hover:text-purple-300 transition-colors">
                 <Shield className="w-4 h-4 mr-1" />
                 Clasificación
               </div>
@@ -74,13 +74,13 @@ export function Navigation() {
                 alt="ClashArenaGG Logo"
                 className="w-8 h-8 rounded-full"
               />
-            <span className="font-bold text-xl">LoL Tournaments</span>
+            <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">ClashArenaGG</span>
           </Link>
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <DropdownMenu>
-              <DropdownMenuTrigger className="text-slate-300 hover:text-white transition-colors">
+              <DropdownMenuTrigger className="text-cyan-400 hover:text-cyan-300 transition-colors">
                 <span className="flex items-center">
                   <Trophy className="w-4 h-4 mr-1" />
                   Torneos
@@ -113,7 +113,7 @@ export function Navigation() {
             
             <Link 
               href="/leaderboard" 
-              className="text-slate-300 hover:text-white transition-colors flex items-center"
+              className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center"
             >
               <Shield className="w-4 h-4 mr-1" />
               Clasificación
