@@ -189,7 +189,7 @@ export function TournamentDetails({
     };
 
     checkParticipation();
-  }, [tournament.id, currentUser?.id]);
+  }, [tournament.id, currentUser, supabase]);
 
   const canRegister = currentUser && !isParticipant && 
     (tournament.status === 'upcoming' || tournament.status === 'active') &&
@@ -246,7 +246,7 @@ export function TournamentDetails({
       currentStatus = 'completed';
     }
 
-    const statusColors = {
+    const statusColors: Record<string, string> = {
       'unknown': 'bg-slate-500/20 text-slate-300',
       'upcoming': 'bg-blue-500/20 text-blue-300',
       'active': 'bg-green-500/20 text-green-300',
@@ -254,7 +254,7 @@ export function TournamentDetails({
       'cancelled': 'bg-red-500/20 text-red-300'
     };
 
-    const statusLabels = {
+    const statusLabels: Record<string, string> = {
       'unknown': 'Desconocido',
       'upcoming': 'Próximo',
       'active': 'Activo',
@@ -414,32 +414,7 @@ export function TournamentDetails({
                     : 'Únete a este torneo y comienza a competir'
                   }
                 </p>
-                {isParticipant && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch(`/api/tournaments/${tournament.id}/scan`, {
-                          method: 'POST'
-                        });
-                        if (!response.ok) throw new Error('Error al escanear partidas');
-                        const data = await response.json();
-                        if (data.newPoints > 0) {
-                          toast.success(`¡Se encontraron ${data.processedMatches} partidas nuevas! (+${data.newPoints} puntos)`);
-                        } else {
-                          toast.info('No se encontraron partidas nuevas');
-                        }
-                        router.refresh();
-                      } catch (error) {
-                        toast.error('Error al escanear partidas');
-                      }
-                    }}
-                  >
-                    🔄 Buscar Partidas Nuevas
-                  </Button>
-                )}
+
               </div>
                 {canRegister && (
                   <Button 

@@ -98,21 +98,15 @@ export default function TournamentPage() {
 
       // Cargar registro del usuario si está autenticado
       if (user) {
-        console.log('Checking registration for user:', user.id);
-        const { data: registrationData, error: registrationError } = await supabase
+        const { data: registrationData } = await supabase
           .from('tournament_registrations')
           .select('*')
           .eq('tournament_id', params.id)
           .eq('user_id', user.id)
           .maybeSingle();
 
-        console.log('Registration data:', registrationData);
-        console.log('Registration error:', registrationError);
-
         // Siempre actualizar el estado, incluso si es null
         setUserRegistration(registrationData);
-      } else {
-        console.log('No user found');
       }
 
       // TODO: Cargar tabla de clasificación cuando tengamos la tabla de participantes
@@ -120,7 +114,7 @@ export default function TournamentPage() {
       setLeaderboard([]);
 
     } catch (error: any) {
-      console.error('Error loading tournament data:', error);
+      // Error silencioso - el toast mostrará el mensaje al usuario
       toast.error(error.message);
     } finally {
       setIsLoading(false);

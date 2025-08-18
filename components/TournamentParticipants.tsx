@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -22,9 +22,11 @@ interface TournamentParticipantsProps {
 export function TournamentParticipants({ tournamentId }: TournamentParticipantsProps) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClientComponentClient();
+  
+  // Memoizar la instancia de Supabase
+  const supabase = useMemo(() => createClientComponentClient(), []);
 
-  const loadParticipants = async () => {
+  const loadParticipants = useCallback(async () => {
     try {
       // Primero obtenemos los registros
       const { data: registrations, error: registrationsError } = await supabase
@@ -54,14 +56,13 @@ export function TournamentParticipants({ tournamentId }: TournamentParticipantsP
         setParticipants(participantsWithAccounts);
       } else {
         setParticipants([]);
-
       }
     } catch (error) {
       console.error('Error loading participants:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase, tournamentId]);
 
   // Suscribirse a cambios en la tabla de registros
   useEffect(() => {
@@ -87,7 +88,7 @@ export function TournamentParticipants({ tournamentId }: TournamentParticipantsP
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tournamentId]);
+  }, [tournamentId, loadParticipants, supabase]);
 
   return (
     <Card className="border-slate-700 bg-slate-800/50">

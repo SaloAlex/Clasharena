@@ -1,103 +1,129 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
+
+interface RiotAccount {
+  game_name: string | null;
+  tag_line: string | null;
+  platform: string | null;
+}
+
+interface User {
+  display_name: string | null;
+  riot_accounts: RiotAccount[];
+}
+
+interface Registration {
+  user_id: string;
+  users: User | null;
+}
+
+interface LeaderboardEntry {
+  user_id: string;
+  display_name: string | null;
+  summoner_name: string | null;
+  region: string | null;
+  matches_played: number;
+  total_points: number;
+  wins: number;
+  losses: number;
+  avg_kda: number;
+  last_match_at: string | null;
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const supabase = createRouteHandlerClient({ cookies });
     const tournamentId = params.id;
 
     // Verificar que el torneo existe
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: tournamentId },
-    });
+    const { data: tournament, error: tournamentError } = await supabase
+      .from('tournaments')
+      .select('*')
+      .eq('id', tournamentId)
+      .single();
 
-    if (!tournament) {
+    if (tournamentError) {
       return NextResponse.json(
-        { error: 'Tournament not found' },
+        { error: 'Torneo no encontrado' },
         { status: 404 }
       );
     }
 
-    // Obtener el leaderboard con puntos acumulados
-    const leaderboard = await prisma.$queryRaw`
-      SELECT 
-        u.id as user_id,
-        u.email,
-        u.display_name,
-        la.summoner_name,
-        la.routing as region,
-        COUNT(DISTINCT tp.match_id) as matches_played,
-        SUM(tp.points) as total_points,
-        COUNT(CASE WHEN tp.reason = 'WIN' THEN 1 END) as wins,
-        COUNT(CASE WHEN tp.reason = 'LOSS' THEN 1 END) as losses,
-        AVG(mr.kda) as avg_kda,
-        MAX(tp.created_at) as last_match_at
-      FROM users u
-      INNER JOIN tournament_registrations tr ON u.id = tr.user_id
-      INNER JOIN linked_riot_accounts la ON u.id = la.user_id AND la.verified = true
-      LEFT JOIN tournament_points tp ON tr.tournament_id = tp.tournament_id AND tr.user_id = tp.user_id
-      LEFT JOIN match_records mr ON tp.match_id = mr.match_id
-      WHERE tr.tournament_id = ${tournamentId}
-      GROUP BY u.id, u.email, u.display_name, la.summoner_name, la.routing
-      ORDER BY total_points DESC, wins DESC, avg_kda DESC
-      LIMIT 100
-    `;
+    // Obtener registros del torneo
+    const { data: registrations, error: registrationsError } = await supabase
+      .from('tournament_registrations')
+      .select('user_id')
+      .eq('tournament_id', tournamentId);
 
-    // Obtener estadísticas del torneo
-    const tournamentStats = await prisma.$queryRaw`
-      SELECT 
-        COUNT(DISTINCT tr.user_id) as total_participants,
-        COUNT(DISTINCT tp.match_id) as total_matches,
-        SUM(tp.points) as total_points_awarded,
-        AVG(tp.points) as avg_points_per_match
-      FROM tournament_registrations tr
-      LEFT JOIN tournament_points tp ON tr.tournament_id = tp.tournament_id AND tr.user_id = tp.user_id
-      WHERE tr.tournament_id = ${tournamentId}
-    `;
+    if (registrationsError) {
+      return NextResponse.json(
+        { error: 'Error al obtener registros' },
+        { status: 500 }
+      );
+    }
 
-    // Obtener las últimas partidas procesadas
-    const recentMatches = await prisma.matchRecord.findMany({
-      where: {
-        matchId: {
-          in: await prisma.tournamentPoint.findMany({
-            where: { tournamentId },
-            select: { matchId: true },
-            orderBy: { createdAt: 'desc' },
-            take: 10,
-          }).then(points => points.map(p => p.matchId)),
-        },
-      },
-      include: {
-        // Aquí podrías incluir más información si es necesario
-      },
-      orderBy: {
-        processedAt: 'desc',
-      },
-      take: 10,
+    // Obtener cuentas de Riot de los usuarios registrados
+    const { data: riotAccounts, error: riotError } = await supabase
+      .from('riot_accounts')
+      .select('user_id, game_name, tag_line, platform')
+      .in('user_id', registrations.map(r => r.user_id))
+      .eq('verified', true);
+
+    if (riotError) {
+      return NextResponse.json(
+        { error: 'Error al obtener cuentas de Riot' },
+        { status: 500 }
+      );
+    }
+
+    // Obtener puntos y estadísticas (si existen)
+    const { data: points } = await supabase
+      .from('tournament_points')
+      .select('*')
+      .eq('tournament_id', tournamentId);
+
+    // Si no hay puntos, usamos un array vacío
+    const tournamentPoints = points || [];
+
+    // Procesar y combinar los datos
+    const leaderboard: LeaderboardEntry[] = registrations.map((registration: any) => {
+      const userPoints = tournamentPoints.filter(p => p.user_id === registration.user_id);
+      const riotAccount = riotAccounts?.find(account => account.user_id === registration.user_id);
+      
+      return {
+        user_id: registration.user_id,
+        display_name: null, // Ya no usamos display_name
+        summoner_name: riotAccount?.game_name || null,
+        region: riotAccount?.platform || null,
+        matches_played: userPoints.length,
+        total_points: userPoints.reduce((sum, p) => sum + (p.points || 0), 0),
+        wins: userPoints.filter(p => p.reasons?.includes('victoria')).length,
+        losses: userPoints.filter(p => p.reasons?.includes('derrota')).length,
+        avg_kda: userPoints.reduce((sum, p) => sum + (p.kda || 0), 0) / (userPoints.length || 1),
+        last_match_at: userPoints.length > 0 
+          ? userPoints.sort((a, b) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )[0].created_at 
+          : null
+      };
     });
+
+    // Ordenar por puntos totales
+    leaderboard.sort((a, b) => b.total_points - a.total_points);
 
     return NextResponse.json({
-      tournament: {
-        id: tournament.id,
-        name: tournament.name,
-        status: tournament.status,
-        startAt: tournament.startAt,
-        endAt: tournament.endAt,
-      },
-      leaderboard: leaderboard,
-      stats: tournamentStats[0],
-      recentMatches: recentMatches,
-      lastUpdated: new Date().toISOString(),
+      success: true,
+      leaderboard
     });
 
-  } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Error al obtener el leaderboard' },
       { status: 500 }
     );
   }
 }
-

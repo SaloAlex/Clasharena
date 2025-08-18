@@ -2,8 +2,6 @@
 const RIOT_API_KEY = process.env.RIOT_API_KEY ?? '';
 
 if (!RIOT_API_KEY) {
-  // Importante: en Next.js, reinicia el server después de setear la env
-  // y guardá RIOT_API_KEY en el entorno del servidor (no en NEXT_PUBLIC_).
   console.warn('[RIOT] Falta RIOT_API_KEY en el entorno');
 }
 
@@ -21,28 +19,39 @@ function platformHost(p: string) {
 
 // Backoff simple para 429 y sin cache
 async function fetchWithRetry(url: string, init?: RequestInit, tries = 3): Promise<Response> {
+  const headers = {
+    'X-Riot-Token': RIOT_API_KEY,
+    ...(init?.headers || {})
+  };
+
   for (let i = 0; i < tries; i++) {
+    console.log(`[RIOT] Intento ${i + 1}/${tries} para ${url}`);
+    console.log('[RIOT] Headers:', headers);
+
     const res = await fetch(url, {
       ...init,
       cache: 'no-store',
-      headers: {
-        ...(init?.headers || {}),
-        'X-Riot-Token': RIOT_API_KEY,
-      },
+      headers
     });
+
+    // Log de la respuesta para debugging
+    console.log(`[RIOT] Status: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.log('[RIOT] Error response:', text);
+    }
+
     if (res.status !== 429) return res;
 
     const retryAfter = Number(res.headers.get('Retry-After')) || 2;
+    console.log(`[RIOT] Rate limited, waiting ${retryAfter} seconds`);
     await new Promise(r => setTimeout(r, (retryAfter + 1) * 1000));
   }
 
   return fetch(url, {
     ...init,
     cache: 'no-store',
-    headers: {
-      ...(init?.headers || {}),
-      'X-Riot-Token': RIOT_API_KEY,
-    },
+    headers
   });
 }
 
@@ -51,7 +60,6 @@ async function fetchJson<T>(url: string): Promise<T> {
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     console.error('[RIOT RESP ERROR]', res.status, res.statusText, text);
-    // Devolvemos errores claros para el caller
     throw new Error(`Riot API error ${res.status}`);
   }
   return res.json() as Promise<T>;
@@ -108,6 +116,12 @@ const PLATFORM_TO_REGION: Record<Platform, Region> = {
 class RiotApi {
   private currentRegion: Region = 'americas';
 
+  constructor() {
+    if (!RIOT_API_KEY) {
+      throw new Error('RIOT_API_KEY no está configurada en el entorno');
+    }
+  }
+
   setRegion(region: Region) {
     this.currentRegion = region;
   }
@@ -115,6 +129,7 @@ class RiotApi {
   getRegionFromPlatform(platform: Platform): Region {
     return PLATFORM_TO_REGION[platform] || 'americas';
   }
+
   /**
    * Summoner por PUUID (usa host de plataforma: la2, na1, euw1, etc.)
    */
@@ -149,6 +164,7 @@ class RiotApi {
     if (!VALID_PLATFORMS.includes(p)) {
       throw new Error(`Plataforma inválida: ${platform}`);
     }
+    console.log(`[RIOT] Obteniendo entradas de liga para ${encryptedSummonerId} en ${p}`);
     const url = `https://${platformHost(p)}/lol/league/v4/entries/by-summoner/${encodeURIComponent(encryptedSummonerId)}`;
     return fetchJson<LeagueEntryDTO[]>(url);
   }
@@ -247,6 +263,12 @@ class RiotApi {
     if (!res.ok) throw new Error(`Queues API error ${res.status}`);
     return res.json();
   }
+}
+
+// Verificar la API key al inicializar
+if (!RIOT_API_KEY) {
+  console.error('[RIOT] ERROR CRÍTICO: RIOT_API_KEY no está configurada');
+  throw new Error('RIOT_API_KEY no está configurada');
 }
 
 export const riotApi = new RiotApi();

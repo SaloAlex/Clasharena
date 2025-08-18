@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -63,10 +64,12 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto">
             <div className="text-center">
               <div className="flex items-center justify-center gap-4 mb-6">
-                <img 
+                <Image 
                   src="/Logo.png" 
                   alt="ClashArenaGG Logo" 
-                  className="w-24 h-24 rounded-full border-4 border-purple-600 shadow-lg shadow-cyan-500/50"
+                  width={96}
+                  height={96}
+                  className="rounded-full border-4 border-purple-600 shadow-lg shadow-cyan-500/50"
                 />
                 <h1 className="text-4xl sm:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">
                   ClashArenaGG

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
+
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -19,7 +20,7 @@ export async function POST(
       );
     }
 
-    // Verificar que el torneo existe
+    // Verificar que el torneo existe y obtener sus restricciones
     const { data: tournament, error: tournamentError } = await supabase
       .from('tournaments')
       .select('*')
@@ -33,10 +34,10 @@ export async function POST(
       );
     }
 
-    // Verificar que el torneo acepta registros (puede estar upcoming o active)
+    // Verificar que el torneo acepta registros
     const now = new Date();
-    const startDate = new Date(tournament.start_at);
-    const endDate = new Date(tournament.end_at);
+    const startDate = new Date(tournament.start_date);
+    const endDate = new Date(tournament.end_date);
     
     if (tournament.status === 'finished' || tournament.status === 'cancelled') {
       return NextResponse.json(
@@ -62,13 +63,15 @@ export async function POST(
 
     if (riotError || !riotAccount) {
       return NextResponse.json(
-        { error: 'Debes tener una cuenta de Riot verificada para inscribirte' },
+        { error: 'Necesitas vincular y verificar tu cuenta de Riot primero' },
         { status: 400 }
       );
     }
 
-    // Verificar que no está ya registrado
-    const { data: existingRegistration } = await supabase
+    // Se removió temporalmente la verificación de rango
+
+    // Verificar si ya está registrado
+    const { data: existingRegistration, error: regError } = await supabase
       .from('tournament_registrations')
       .select('*')
       .eq('tournament_id', tournamentId)
@@ -77,53 +80,57 @@ export async function POST(
 
     if (existingRegistration) {
       return NextResponse.json(
-        { error: 'Ya estás inscrito en este torneo' },
+        { error: 'Ya estás registrado en este torneo' },
         { status: 400 }
       );
     }
 
-    // Crear el registro con la cuenta de Riot vinculada
-    const { data: registration, error: registrationError } = await supabase
+    // Crear el registro
+    const { data: registration, error: createError } = await supabase
       .from('tournament_registrations')
       .insert({
         tournament_id: tournamentId,
         user_id: session.user.id,
-        riot_account_id: riotAccount.id,
-        registered_at: new Date().toISOString()
+        riot_account_id: riotAccount.id
       })
       .select()
       .single();
 
-    if (registrationError) {
-      console.error('Error creating registration:', registrationError);
+    if (createError) {
+      console.error('Error creando registro:', createError);
       return NextResponse.json(
-        { error: 'Error al inscribirse en el torneo' },
+        { error: 'Error al registrarte en el torneo' },
         { status: 500 }
       );
     }
 
-    // Verificar que el registro se creó correctamente
-    const { data: verifyRegistration } = await supabase
-      .from('tournament_registrations')
-      .select('*')
-      .eq('tournament_id', tournamentId)
-      .eq('user_id', session.user.id)
-      .single();
-
-    console.log('Verify registration:', verifyRegistration);
+    // Registrar en el historial de actividad
+    await supabase
+      .from('tournament_activity')
+      .insert({
+        tournament_id: tournamentId,
+        user_id: session.user.id,
+        action: 'REGISTERED',
+        details: {
+          riot_account: {
+            game_name: riotAccount.game_name,
+            tag_line: riotAccount.tag_line,
+            platform: riotAccount.platform
+          }
+        }
+      });
 
     return NextResponse.json({
       success: true,
-      registration: verifyRegistration,
-      message: '¡Inscripción exitosa al torneo!'
+      registration,
+      message: 'Registro exitoso'
     });
 
-  } catch (error) {
-    console.error('Error registering for tournament:', error);
+  } catch (error: any) {
+    console.error('Error en registro:', error);
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      { error: error.message || 'Error desconocido' },
       { status: 500 }
     );
   }
 }
-

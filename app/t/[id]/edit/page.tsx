@@ -81,12 +81,22 @@ export default function EditTournamentPage() {
         return;
       }
 
+      // Verificar si el torneo ya comenzó
+      const now = new Date();
+      const tournamentStart = new Date(tournament.start_date);
+      const tournamentEnd = new Date(tournament.end_date);
+
+      // Si el torneo ya comenzó, no permitir cambiar la fecha de inicio
+      if (tournamentStart < now) {
+        toast.warning('El torneo ya comenzó. No se puede modificar la fecha de inicio.');
+      }
+
       setFormData({
         title: tournament.title,
         description: tournament.description,
         format: tournament.format as any,
-        startDate: new Date(tournament.start_date),
-        endDate: new Date(tournament.end_date),
+        startDate: tournamentStart,
+        endDate: tournamentEnd,
         pointsPerWin: tournament.points_per_win,
         pointsPerLoss: tournament.points_per_loss,
         pointsFirstBlood: tournament.points_first_blood,
@@ -106,6 +116,23 @@ export default function EditTournamentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validar fechas
+    const now = new Date();
+    const originalStartDate = new Date(formData.startDate);
+    
+    // Si el torneo ya comenzó, no permitir cambiar la fecha de inicio a una fecha futura
+    if (originalStartDate < now && formData.startDate > originalStartDate) {
+      toast.error('No se puede modificar la fecha de inicio de un torneo que ya comenzó');
+      return;
+    }
+
+    // Validar que la fecha de fin sea posterior a la de inicio
+    if (formData.endDate <= formData.startDate) {
+      toast.error('La fecha de fin debe ser posterior a la fecha de inicio');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -241,6 +268,7 @@ export default function EditTournamentPage() {
                   <DateTimePicker
                     value={formData.startDate}
                     onChange={(date: Date) => setFormData({ ...formData, startDate: date })}
+                    disabled={formData.startDate < new Date()}
                   />
                 </div>
                 <div className="space-y-2">
@@ -382,8 +410,8 @@ export default function EditTournamentPage() {
                 <Input
                   id="maxGamesPerDay"
                   type="number"
-                  value={formData.maxGamesPerDay}
-                  onChange={(e) => setFormData({ ...formData, maxGamesPerDay: parseInt(e.target.value || '0', 10) })}
+                  value={formData.maxGamesPerDay || ''}
+                  onChange={(e) => setFormData({ ...formData, maxGamesPerDay: e.target.value ? parseInt(e.target.value, 10) : 0 })}
                   placeholder="0 = Sin límite"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
