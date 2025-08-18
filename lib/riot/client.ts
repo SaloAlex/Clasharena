@@ -1,48 +1,173 @@
-import { getRoutingRegion } from './routing';
-import { withRiotApiRetry, DEFAULT_LIMITS } from './rate-limit';
+// lib/riot/client.ts
+const RIOT_API_KEY = process.env.RIOT_API_KEY ?? '';
 
-export interface RateLimitConfig {
-  method: string;
-  endpoint: string;
-  limit: number;
-  windowMs: number;
+if (!RIOT_API_KEY) {
+  // Importante: en Next.js, reinicia el server después de setear la env
+  // y guardá RIOT_API_KEY en el entorno del servidor (no en NEXT_PUBLIC_).
+  console.warn('[RIOT] Falta RIOT_API_KEY en el entorno');
 }
 
-export class RiotAPIClient {
-  private apiKey: string;
-  private baseUrl: string = 'https://americas.api.riotgames.com'; // Default to Americas
+type Platform =
+  | 'br1' | 'eun1' | 'euw1' | 'jp1' | 'kr'
+  | 'la1' | 'la2' | 'na1' | 'oc1' | 'tr1' | 'ru';
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+const VALID_PLATFORMS: Platform[] = [
+  'br1','eun1','euw1','jp1','kr','la1','la2','na1','oc1','tr1','ru'
+];
+
+function platformHost(p: string) {
+  return `${p}.api.riotgames.com`;
+}
+
+// Backoff simple para 429 y sin cache
+async function fetchWithRetry(url: string, init?: RequestInit, tries = 3): Promise<Response> {
+  for (let i = 0; i < tries; i++) {
+    const res = await fetch(url, {
+      ...init,
+      cache: 'no-store',
+      headers: {
+        ...(init?.headers || {}),
+        'X-Riot-Token': RIOT_API_KEY,
+      },
+    });
+    if (res.status !== 429) return res;
+
+    const retryAfter = Number(res.headers.get('Retry-After')) || 2;
+    await new Promise(r => setTimeout(r, (retryAfter + 1) * 1000));
   }
 
-  setRouting(routing: 'AMERICAS' | 'EUROPE' | 'ASIA') {
-    const region = getRoutingRegion(routing);
-    this.baseUrl = `https://${region}.api.riotgames.com`;
+  return fetch(url, {
+    ...init,
+    cache: 'no-store',
+    headers: {
+      ...(init?.headers || {}),
+      'X-Riot-Token': RIOT_API_KEY,
+    },
+  });
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetchWithRetry(url);
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error('[RIOT RESP ERROR]', res.status, res.statusText, text);
+    // Devolvemos errores claros para el caller
+    throw new Error(`Riot API error ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export interface SummonerDTO {
+  id: string;               // encryptedSummonerId
+  accountId: string;
+  puuid: string;
+  name: string;
+  profileIconId: number;
+  revisionDate: number;
+  summonerLevel: number;
+}
+
+export interface LeagueEntryDTO {
+  leagueId: string;
+  queueType: 'RANKED_SOLO_5x5' | 'RANKED_FLEX_SR' | string;
+  tier: string;
+  rank: string;
+  summonerId: string;       // encryptedSummonerId
+  summonerName: string;
+  leaguePoints: number;
+  wins: number;
+  losses: number;
+  hotStreak: boolean;
+  veteran: boolean;
+  freshBlood: boolean;
+  inactive: boolean;
+  miniSeries?: {
+    losses: number;
+    progress: string;
+    target: number;
+    wins: number;
+  }
+}
+
+type Region = 'americas' | 'europe' | 'asia' | 'sea';
+
+const PLATFORM_TO_REGION: Record<Platform, Region> = {
+  'br1': 'americas',
+  'la1': 'americas',
+  'la2': 'americas',
+  'na1': 'americas',
+  'eun1': 'europe',
+  'euw1': 'europe',
+  'tr1': 'europe',
+  'ru': 'europe',
+  'jp1': 'asia',
+  'kr': 'asia',
+  'oc1': 'sea'
+};
+
+class RiotApi {
+  private currentRegion: Region = 'americas';
+
+  setRegion(region: Region) {
+    this.currentRegion = region;
   }
 
-  private async request<T>(endpoint: string, config: RateLimitConfig): Promise<T> {
-    return withRiotApiRetry(async () => {
-      const url = `${this.baseUrl}${endpoint}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'X-Riot-Token': this.apiKey,
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          throw new Error(`Rate limited. Retry after: ${retryAfter}s`);
-        }
-        throw new Error(`Riot API error: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
-    }, config);
+  getRegionFromPlatform(platform: Platform): Region {
+    return PLATFORM_TO_REGION[platform] || 'americas';
+  }
+  /**
+   * Summoner por PUUID (usa host de plataforma: la2, na1, euw1, etc.)
+   */
+  async getRiotAccount(puuid: string): Promise<any> {
+    const url = `https://americas.api.riotgames.com/riot/account/v1/accounts/by-puuid/${encodeURIComponent(puuid)}`;
+    return fetchJson(url);
   }
 
+  async getSummonerByPuuid(puuid: string, platform: Platform): Promise<SummonerDTO> {
+    const p = platform.toLowerCase() as Platform;
+    if (!VALID_PLATFORMS.includes(p)) {
+      throw new Error(`Plataforma inválida: ${platform}`);
+    }
+    const url = `https://${platformHost(p)}/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`;
+    return fetchJson<SummonerDTO>(url);
+  }
+
+  async getSummonerByRiotId(gameName: string, tagLine: string, platform: Platform): Promise<SummonerDTO> {
+    const p = platform.toLowerCase() as Platform;
+    if (!VALID_PLATFORMS.includes(p)) {
+      throw new Error(`Plataforma inválida: ${platform}`);
+    }
+    const url = `https://${platformHost(p)}/lol/summoner/v4/summoners/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+    return fetchJson<SummonerDTO>(url);
+  }
+
+  /**
+   * Entradas de liga por encryptedSummonerId (League-v4) — también usa plataforma
+   */
+  async getLeagueEntries(encryptedSummonerId: string, platform: Platform): Promise<LeagueEntryDTO[]> {
+    const p = platform.toLowerCase() as Platform;
+    if (!VALID_PLATFORMS.includes(p)) {
+      throw new Error(`Plataforma inválida: ${platform}`);
+    }
+    const url = `https://${platformHost(p)}/lol/league/v4/entries/by-summoner/${encodeURIComponent(encryptedSummonerId)}`;
+    return fetchJson<LeagueEntryDTO[]>(url);
+  }
+
+  /**
+   * Obtiene la maestría de campeones de un invocador
+   */
+  async getChampionMasteryByPUUID(puuid: string, platform: Platform): Promise<any[]> {
+    const p = platform.toLowerCase() as Platform;
+    if (!VALID_PLATFORMS.includes(p)) {
+      throw new Error(`Plataforma inválida: ${platform}`);
+    }
+    const url = `https://${platformHost(p)}/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`;
+    return fetchJson<any[]>(url);
+  }
+
+  /**
+   * Obtiene IDs de partidas por PUUID (usa región: americas, europe, asia)
+   */
   async getMatchIds(params: {
     puuid: string;
     startTime?: number;
@@ -61,76 +186,68 @@ export class RiotAPIClient {
     });
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    return this.request<string[]>(
-      `/lol/match/v5/matches/by-puuid/${params.puuid}/ids${queryString}`,
-      DEFAULT_LIMITS['GET-matchIds']
-    );
+    const url = `https://${this.currentRegion}.api.riotgames.com/lol/match/v5/matches/by-puuid/${encodeURIComponent(params.puuid)}/ids${queryString}`;
+    return fetchJson<string[]>(url);
   }
 
+  /**
+   * Obtiene detalles de una partida por ID (usa región: americas, europe, asia)
+   */
   async getMatch(matchId: string): Promise<any> {
-    return this.request(
-      `/lol/match/v5/matches/${matchId}`,
-      DEFAULT_LIMITS['GET-matches']
-    );
+    const url = `https://${this.currentRegion}.api.riotgames.com/lol/match/v5/matches/${encodeURIComponent(matchId)}`;
+    return fetchJson(url);
   }
 
-  async getSummonerByPuuid(puuid: string, region: string): Promise<any> {
-    const baseUrl = `https://${region}.api.riotgames.com`;
-    const config = DEFAULT_LIMITS['GET-summoner'];
-    
-    return withRiotApiRetry(async () => {
-      const response = await fetch(`${baseUrl}/lol/summoner/v4/summoners/by-puuid/${puuid}`, {
-        headers: {
-          'X-Riot-Token': this.apiKey,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Summoner API error: ${response.status} ${response.statusText}`);
-      }
-      
-      return response.json();
-    }, config);
-  }
-
-  async getLeagueEntries(summonerId: string, region: string): Promise<any> {
-    const baseUrl = `https://${region}.api.riotgames.com`;
-    const config = DEFAULT_LIMITS['GET-summoner']; // Usar los mismos límites que summoner
-    
-    return withRiotApiRetry(async () => {
-      const response = await fetch(`${baseUrl}/lol/league/v4/entries/by-summoner/${summonerId}`, {
-        headers: {
-          'X-Riot-Token': this.apiKey,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`League API error: ${response.status} ${response.statusText}`);
-      }
-      
-      return response.json();
-    }, config);
-  }
-
+  /**
+   * Obtiene datos de campeones desde Data Dragon
+   */
   async getChampions(): Promise<any> {
-    const response = await fetch('https://ddragon.leagueoflegends.com/cdn/14.1.1/data/en_US/champion.json');
-    
-    if (!response.ok) {
-      throw new Error(`Champions API error: ${response.status} ${response.statusText}`);
-    }
-    
-    return response.json();
+    const url = 'https://ddragon.leagueoflegends.com/cdn/14.1.1/data/es_ES/champion.json';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Champions API error ${res.status}`);
+    return res.json();
   }
 
+  /**
+   * Obtiene datos de objetos desde Data Dragon
+   */
+  async getItems(): Promise<any> {
+    const url = 'https://ddragon.leagueoflegends.com/cdn/14.1.1/data/es_ES/item.json';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Items API error ${res.status}`);
+    return res.json();
+  }
+
+  /**
+   * Obtiene datos de runas desde Data Dragon
+   */
+  async getRunes(): Promise<any> {
+    const url = 'https://ddragon.leagueoflegends.com/cdn/14.1.1/data/es_ES/runesReforged.json';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Runes API error ${res.status}`);
+    return res.json();
+  }
+
+  /**
+   * Obtiene datos de hechizos de invocador desde Data Dragon
+   */
+  async getSummonerSpells(): Promise<any> {
+    const url = 'https://ddragon.leagueoflegends.com/cdn/14.1.1/data/es_ES/summoner.json';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Summoner spells API error ${res.status}`);
+    return res.json();
+  }
+
+  /**
+   * Obtiene datos de colas desde el CDN de Riot
+   */
   async getQueues(): Promise<any> {
-    const response = await fetch('https://static.developer.riotgames.com/docs/lol/queues.json');
-    
-    if (!response.ok) {
-      throw new Error(`Queues API error: ${response.status} ${response.statusText}`);
-    }
-    
-    return response.json();
+    const url = 'https://static.developer.riotgames.com/docs/lol/queues.json';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Queues API error ${res.status}`);
+    return res.json();
   }
 }
 
-export const riotApi = new RiotAPIClient(process.env.RIOT_API_KEY || '');
+export const riotApi = new RiotApi();
+export { VALID_PLATFORMS };

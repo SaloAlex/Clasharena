@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Gamepad2, Link as LinkIcon, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
 import { MatchHistory } from '@/components/MatchHistory';
+import { ChampionMastery } from '@/components/ChampionMastery';
+import { PlayerStats } from '@/components/PlayerStats';
 
 interface RiotAccount {
   game_name: string;
@@ -113,83 +115,74 @@ export default function ProfilePage() {
         </div>
 
         {/* Cuenta de Riot */}
-        <Card className="border-slate-700 bg-slate-800/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <LinkIcon className="w-5 h-5 text-blue-500" />
-              Cuenta de Riot
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Tu cuenta vinculada de League of Legends
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {riotAccount ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-slate-700/50 rounded-lg">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-slate-400">Riot ID</p>
-                      <p className="text-white">{riotAccount.game_name}#{riotAccount.tag_line}</p>
+        <div className="flex justify-end mb-6">
+          <Card className="w-auto border-slate-700 bg-slate-800/50">
+            <CardContent className="p-4">
+              {riotAccount ? (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">{riotAccount.game_name}</span>
+                        <span className="text-slate-400">#{riotAccount.tag_line}</span>
+                        <span className="text-slate-400 text-sm">{riotAccount.platform}</span>
+                        {riotAccount.verified && (
+                          <span className="w-2 h-2 rounded-full bg-green-500" title="Cuenta verificada"></span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-400">Plataforma</p>
-                      <p className="text-white">{riotAccount.platform}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-400">Estado</p>
-                      <p className="text-white flex items-center gap-1">
-                        {riotAccount.verified ? (
-                          <>
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            Verificada
-                          </>
+                    <div className="relative group">
+                      <Button
+                        onClick={handleUnlink}
+                        disabled={isUnlinking}
+                        variant="destructive"
+                        size="sm"
+                        className="relative"
+                      >
+                        {isUnlinking ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                         ) : (
                           <>
-                            <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
-                            Pendiente
+                            <Unlink className="w-4 h-4" />
+                            <span className="sr-only">Desvincular cuenta</span>
                           </>
                         )}
-                      </p>
+                      </Button>
+                      <div className="absolute hidden group-hover:block -bottom-8 right-0 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
+                        Desvincular cuenta
+                      </div>
                     </div>
                   </div>
                 </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">Sin cuenta vinculada</span>
+                  <div className="relative group">
+                    <Button
+                      onClick={() => router.push('/link-riot')}
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                      <span className="sr-only">Vincular cuenta</span>
+                    </Button>
+                    <div className="absolute hidden group-hover:block -bottom-8 right-0 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
+                      Vincular cuenta
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-                <Button
-                  onClick={handleUnlink}
-                  disabled={isUnlinking}
-                  variant="destructive"
-                  className="w-full"
-                >
-                  {isUnlinking ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Desvinculando...
-                    </>
-                  ) : (
-                    <>
-                      <Unlink className="w-4 h-4 mr-2" />
-                      Desvincular Cuenta
-                    </>
-                  )}
-                </Button>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-slate-400 mb-4">
-                  No tienes una cuenta de Riot vinculada
-                </p>
-                <Button
-                  onClick={() => router.push('/link-riot')}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <LinkIcon className="w-4 h-4 mr-2" />
-                  Vincular Cuenta
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Maestría de Campeones */}
+        {riotAccount?.verified && riotAccount.puuid && (
+          <ChampionMastery 
+            puuid={riotAccount.puuid}
+            region={riotAccount.platform.toLowerCase()}
+          />
+        )}
 
         {/* Historial de Partidas */}
         {riotAccount?.verified && riotAccount.puuid && (

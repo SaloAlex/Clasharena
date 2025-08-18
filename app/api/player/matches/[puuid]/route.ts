@@ -13,6 +13,7 @@ export async function GET(
     const count = parseInt(searchParams.get('count') || '10');
     const startTime = searchParams.get('startTime');
     const endTime = searchParams.get('endTime');
+    const platform = (searchParams.get('region') || 'la2').toLowerCase();
 
     if (!puuid) {
       return NextResponse.json(
@@ -28,11 +29,9 @@ export async function GET(
         { status: 500 }
       );
     }
-
-    // Por ahora asumimos que todos los usuarios son de AMERICAS
-    const routing = 'AMERICAS';
-
-    riotApi.setRouting(routing);
+    const region = riotApi.getRegionFromPlatform(platform as any);
+    
+    riotApi.setRegion(region);
 
     // Obtener IDs de partidas
     const matchIds = await riotApi.getMatchIds({
@@ -42,10 +41,13 @@ export async function GET(
       endTime: endTime ? parseInt(endTime) : undefined,
     });
 
-    // Obtener datos de campeones y colas para enriquecer la respuesta
-    const [championsData, queuesData] = await Promise.all([
+    // Obtener datos estáticos para enriquecer la respuesta
+    const [championsData, queuesData, itemsData, runesData, summonerSpellsData] = await Promise.all([
       riotApi.getChampions().catch(() => ({ data: {} })),
-      riotApi.getQueues().catch(() => [])
+      riotApi.getQueues().catch(() => []),
+      riotApi.getItems().catch(() => ({ data: {} })),
+      riotApi.getRunes().catch(() => []),
+      riotApi.getSummonerSpells().catch(() => ({ data: {} }))
     ]);
 
     // Crear mapeos para búsqueda rápida
@@ -62,6 +64,51 @@ export async function GET(
       acc[queue.queueId] = {
         description: queue.description,
         map: queue.map
+      };
+      return acc;
+    }, {});
+
+    // Mapeo de objetos
+    const itemMap = Object.entries(itemsData.data || {}).reduce((acc: any, [id, item]: [string, any]) => {
+      acc[id] = {
+        name: item.name,
+        description: item.description,
+        image: `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/item/${id}.png`,
+        gold: item.gold.total,
+        tags: item.tags
+      };
+      return acc;
+    }, {});
+
+    // Mapeo de runas
+    const runeMap = runesData.reduce((acc: any, tree: any) => {
+      // Agregar el árbol principal
+      acc[tree.id] = {
+        name: tree.name,
+        icon: `https://ddragon.leagueoflegends.com/cdn/img/${tree.icon}`,
+        key: tree.key
+      };
+      // Agregar las runas individuales
+      tree.slots.forEach((slot: any) => {
+        slot.runes.forEach((rune: any) => {
+          acc[rune.id] = {
+            name: rune.name,
+            icon: `https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`,
+            key: rune.key,
+            shortDesc: rune.shortDesc,
+            tree: tree.name
+          };
+        });
+      });
+      return acc;
+    }, {});
+
+    // Mapeo de hechizos de invocador
+    const summonerSpellMap = Object.values(summonerSpellsData.data || {}).reduce((acc: any, spell: any) => {
+      acc[spell.key] = {
+        name: spell.name,
+        description: spell.description,
+        image: `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/spell/${spell.image.full}`
       };
       return acc;
     }, {});
@@ -117,7 +164,33 @@ export async function GET(
               cs: player.totalMinionsKilled + player.neutralMinionsKilled,
               gold: player.goldEarned,
               damageDealt: player.totalDamageDealtToChampions,
-              visionScore: player.visionScore || 0
+              visionScore: player.visionScore || 0,
+              level: player.champLevel
+            },
+            build: {
+              items: [
+                player.item0 ? itemMap[player.item0] : null,
+                player.item1 ? itemMap[player.item1] : null,
+                player.item2 ? itemMap[player.item2] : null,
+                player.item3 ? itemMap[player.item3] : null,
+                player.item4 ? itemMap[player.item4] : null,
+                player.item5 ? itemMap[player.item5] : null,
+                player.item6 ? itemMap[player.item6] : null, // Trinket
+              ].filter(Boolean),
+              runes: {
+                primary: {
+                  style: runeMap[player.perks?.styles?.[0]?.style] || null,
+                  selected: player.perks?.styles?.[0]?.selections?.map((selection: any) => runeMap[selection.perk]) || []
+                },
+                secondary: {
+                  style: runeMap[player.perks?.styles?.[1]?.style] || null,
+                  selected: player.perks?.styles?.[1]?.selections?.map((selection: any) => runeMap[selection.perk]) || []
+                }
+              },
+              summonerSpells: {
+                d: summonerSpellMap[player.summoner1Id] || null,
+                f: summonerSpellMap[player.summoner2Id] || null
+              }
             },
             team: {
               teamId: player.teamId,
@@ -137,15 +210,13 @@ export async function GET(
     return NextResponse.json({
       success: true,
       puuid: puuid,
-      routing: routing,
+      region: region,
       matches: validMatches,
       total: validMatches.length,
       requested: count
     });
 
   } catch (error: any) {
-    console.error('Error obteniendo partidas del jugador:', error);
-    
     return NextResponse.json({
       success: false,
       error: error.message,

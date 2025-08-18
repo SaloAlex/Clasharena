@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDistance } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, Clock, Crosshair, Swords, Target, Trophy } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { PlayerStats } from '@/components/PlayerStats';
 
 interface Match {
   matchId: string;
@@ -79,7 +80,6 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
       setIsLoading(true);
       setError(null);
 
-      // Obtener las últimas 20 partidas
       const response = await fetch(`/api/player/matches/${puuid}?count=20`, {
         credentials: 'include'
       });
@@ -98,7 +98,7 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
       calculateStats(data.matches);
     } catch (error: any) {
       setError(error.message);
-      console.error('Error cargando partidas:', error);
+
     } finally {
       setIsLoading(false);
     }
@@ -201,170 +201,190 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
   }
 
   return (
-    <Card className="border-slate-700 bg-slate-800/50 mt-6">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-white">Historial de Partidas</CardTitle>
-          <Select value={selectedQueue} onValueChange={setSelectedQueue}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por cola" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las colas</SelectItem>
-              <SelectItem value="ranked">Ranked Solo/Duo</SelectItem>
-              <SelectItem value="flex">Ranked Flex</SelectItem>
-              <SelectItem value="normal">Normal</SelectItem>
-              <SelectItem value="aram">ARAM</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* Estadísticas Generales */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-slate-700/30 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm text-slate-400">Victorias</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{stats.wins}</span>
-                <span className="text-sm text-slate-400 ml-2">
-                  ({Math.round((stats.wins / stats.totalGames) * 100)}%)
-                </span>
-              </div>
-            </div>
-            <div className="bg-slate-700/30 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <Swords className="w-4 h-4 text-blue-500" />
-                <span className="text-sm text-slate-400">KDA Promedio</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{stats.averageKDA}</span>
-              </div>
-            </div>
-            <div className="bg-slate-700/30 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <Target className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-slate-400">CS Promedio</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{stats.averageCS}</span>
-              </div>
-            </div>
-            <div className="bg-slate-700/30 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <Clock className="w-4 h-4 text-purple-500" />
-                <span className="text-sm text-slate-400">Duración Promedio</span>
-              </div>
-              <div className="mt-2">
-                <span className="text-2xl font-bold text-white">{stats.averageDuration}m</span>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {stats && <PlayerStats stats={stats} />}
+      
+      <Card className="border-slate-700 bg-slate-800/50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white">Historial de Partidas</CardTitle>
+            <Select value={selectedQueue} onValueChange={setSelectedQueue}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por cola" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las colas</SelectItem>
+                <SelectItem value="ranked">Ranked Solo/Duo</SelectItem>
+                <SelectItem value="flex">Ranked Flex</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="aram">ARAM</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        )}
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[600px]">
+            <div className="space-y-2 p-4">
+              {matches
+                .filter(match => selectedQueue === 'all' || match.queue.description.toLowerCase().includes(selectedQueue))
+                .map((match) => (
+                  <div
+                    key={match.matchId}
+                    className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${
+                      match.stats.win ? 'bg-green-900/20 hover:bg-green-900/30' : 'bg-red-900/20 hover:bg-red-900/30'
+                    }`}
+                  >
+                    <div className="grid grid-cols-12 gap-4 items-center">
+                      {/* Información del Campeón */}
+                      <div className="col-span-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            <img
+                              src={match.champion.image}
+                              alt={match.champion.name}
+                              className="w-12 h-12 rounded-full border-2 border-slate-600"
+                            />
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
+                              <span className="text-xs font-bold">
+                                {match.team.position === 'UTILITY' ? 'SUP' : 
+                                 match.team.position === 'BOTTOM' ? 'ADC' :
+                                 match.team.position?.slice(0, 3).toUpperCase() || '?'}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{match.champion.name}</p>
+                            <p className="text-sm text-slate-400">{match.queue.description}</p>
+                          </div>
+                        </div>
+                      </div>
 
-        {/* Lista de Partidas */}
-        <div className="space-y-4">
-          {matches
-            .filter(match => selectedQueue === 'all' || match.queue.description.toLowerCase().includes(selectedQueue))
-            .map((match) => (
-            <div
-              key={match.matchId}
-              className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${
-                match.stats.win ? 'bg-green-900/20 hover:bg-green-900/30' : 'bg-red-900/20 hover:bg-red-900/30'
-              }`}
-            >
-              <div className="grid grid-cols-12 gap-4 items-center">
-                {/* Información del Campeón */}
-                <div className="col-span-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="relative">
-                      <img
-                        src={match.champion.image}
-                        alt={match.champion.name}
-                        className="w-12 h-12 rounded-full border-2 border-slate-600"
-                      />
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
-                        <span className="text-xs font-bold">
-                          {match.team.position === 'UTILITY' ? 'SUP' : 
-                           match.team.position === 'BOTTOM' ? 'ADC' :
-                           match.team.position?.slice(0, 3).toUpperCase() || '?'}
-                        </span>
+                      {/* KDA y Farm */}
+                      <div className="col-span-2">
+                        <div className="text-center">
+                          <p className="text-white text-lg font-bold">
+                            {match.stats.kills} / <span className="text-red-400">{match.stats.deaths}</span> / {match.stats.assists}
+                          </p>
+                          <div className="flex items-center justify-center space-x-3 text-sm text-slate-400">
+                            <span>KDA: {match.stats.kda}</span>
+                            <span>•</span>
+                            <span>CS: {match.stats.cs}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Builds y Runas */}
+                      <div className="col-span-3">
+                        <div className="flex items-center justify-center gap-2">
+                          {/* Hechizos de invocador */}
+                          <div className="flex flex-col gap-1">
+                            {match.build?.summonerSpells?.d && (
+                              <img 
+                                src={match.build.summonerSpells.d.image}
+                                alt={match.build.summonerSpells.d.name}
+                                className="w-6 h-6 rounded-md"
+                                title={match.build.summonerSpells.d.name}
+                              />
+                            )}
+                            {match.build?.summonerSpells?.f && (
+                              <img 
+                                src={match.build.summonerSpells.f.image}
+                                alt={match.build.summonerSpells.f.name}
+                                className="w-6 h-6 rounded-md"
+                                title={match.build.summonerSpells.f.name}
+                              />
+                            )}
+                          </div>
+
+                          {/* Items */}
+                          <div className="grid grid-cols-4 gap-1">
+                            {match.build?.items?.map((item, index) => (
+                              <div key={index} className="relative group">
+                                <img 
+                                  src={item.image}
+                                  alt={item.name}
+                                  className="w-6 h-6 rounded-md"
+                                />
+                                <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
+                                  <p className="font-medium">{item.name}</p>
+                                  <p className="text-slate-400">{item.gold}g</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Runas */}
+                          {match.build?.runes?.primary?.style && (
+                            <div className="flex items-center gap-1">
+                              <div className="relative group">
+                                <img 
+                                  src={match.build.runes.primary.style.icon}
+                                  alt={match.build.runes.primary.style.name}
+                                  className="w-6 h-6 rounded-full"
+                                />
+                                <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
+                                  {match.build.runes.primary.style.name}
+                                </div>
+                              </div>
+                              {match.build.runes.secondary?.style && (
+                                <div className="relative group">
+                                  <img 
+                                    src={match.build.runes.secondary.style.icon}
+                                    alt={match.build.runes.secondary.style.name}
+                                    className="w-5 h-5 rounded-full opacity-75"
+                                  />
+                                  <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
+                                    {match.build.runes.secondary.style.name}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Daño y Visión */}
+                      <div className="col-span-2">
+                        <div className="text-center">
+                          <p className="text-white">
+                            {(match.stats.damageDealt / 1000).toFixed(1)}k dmg
+                          </p>
+                          <p className="text-sm text-slate-400">
+                            Visión: {match.stats.visionScore}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Resultado y Tiempo */}
+                      <div className="col-span-2">
+                        <div className="text-center">
+                          <p className={`font-bold ${
+                            match.stats.win ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {match.stats.win ? 'Victoria' : 'Derrota'}
+                          </p>
+                          <p className="text-sm text-slate-400">
+                            {match.gameDuration} min • {formatDistance(new Date(match.gameCreation), new Date(), {
+                              addSuffix: true,
+                              locale: es,
+                              includeSeconds: true
+                            }).replace('dentro de', 'hace')}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-white font-medium">{match.champion.name}</p>
-                      <p className="text-sm text-slate-400">{match.queue.description}</p>
-                    </div>
                   </div>
-                </div>
+                ))}
 
-                {/* KDA y Farm */}
-                <div className="col-span-3">
-                  <div className="text-center">
-                    <p className="text-white text-lg font-bold">
-                      {match.stats.kills} / <span className="text-red-400">{match.stats.deaths}</span> / {match.stats.assists}
-                    </p>
-                    <div className="flex items-center justify-center space-x-3 text-sm text-slate-400">
-                      <span>KDA: {match.stats.kda}</span>
-                      <span>•</span>
-                      <span>CS: {match.stats.cs}</span>
-                    </div>
-                  </div>
+              {matches.length === 0 && (
+                <div className="text-center py-8 text-slate-400">
+                  No hay partidas recientes
                 </div>
-
-                {/* Daño y Visión */}
-                <div className="col-span-2">
-                  <div className="text-center">
-                    <p className="text-white">
-                      {(match.stats.damageDealt / 1000).toFixed(1)}k dmg
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      Visión: {match.stats.visionScore}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Duración y Tiempo */}
-                <div className="col-span-2">
-                  <div className="text-center">
-                    <p className="text-white">{match.gameDuration} min</p>
-                    <p className="text-sm text-slate-400">
-                      {formatDistance(new Date(match.gameCreation), new Date(), {
-                        addSuffix: true,
-                        locale: es,
-                        includeSeconds: true
-                      }).replace('dentro de', 'hace')}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Resultado */}
-                <div className="col-span-2">
-                  <div className="text-center">
-                    <p className={`font-bold ${
-                      match.stats.win ? 'text-green-400' : 'text-red-400'
-                    }`}>
-                      {match.stats.win ? 'Victoria' : 'Derrota'}
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      {match.team.position || match.team.lane}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
-          ))}
-
-          {matches.length === 0 && (
-            <div className="text-center py-8 text-slate-400">
-              No hay partidas recientes
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
