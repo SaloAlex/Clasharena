@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { riotApi } from '@/lib/riot/client';
+// TODO: Migrar a nuevo cliente unificado
+// import { riotApi } from '@/lib/riot/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,8 +14,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // TODO: Migrar a nuevo cliente unificado
     // Obtener datos de campeones
-    const championsData = await riotApi.getChampions();
+    // const championsData = await riotApi.getChampions();
     
     // Procesar y formatear los datos
     const champions = Object.values(championsData.data).map((champion: any) => ({
@@ -26,11 +28,10 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({
-      success: true,
-      champions: champions,
-      total: champions.length,
-      version: championsData.version
-    });
+      success: false,
+      error: 'Endpoint temporalmente deshabilitado - migrando a nuevo cliente',
+      message: 'Este endpoint será reimplementado con el nuevo cliente unificado'
+    }, { status: 503 });
 
   } catch (error: any) {
     console.error('Error obteniendo campeones:', error);

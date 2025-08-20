@@ -1,35 +1,37 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Removido output: 'export' para permitir APIs dinámicas
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  images: { unoptimized: true },
-  // Configuración para mejorar la estabilidad
   experimental: {
-    serverComponentsExternalPackages: ['@supabase/supabase-js'],
+    serverActions: true,
   },
-  // Configuración de headers para CORS
-  async headers() {
+  async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
-        ],
+        source: '/api/images/:type/:id',
+        destination: '/api/data-dragon?type=:type&id=:id',
       },
     ];
   },
-  // Configuración de webpack para ignorar warnings específicos
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ddragon.leagueoflegends.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'raw.communitydragon.org',
+        pathname: '/**',
+      }
+    ],
+  },
   webpack: (config) => {
-    // Ignorar el warning de dependencia crítica de Supabase Realtime
     config.ignoreWarnings = [
-      { message: /Critical dependency: the request of a dependency is an expression/ }
+      ...(config.ignoreWarnings ?? []),
+      { module: /@supabase\/realtime-js/, message: /Critical dependency/ },
     ];
     return config;
   },
-};
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig

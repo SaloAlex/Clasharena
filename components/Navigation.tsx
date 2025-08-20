@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { signOut } from '@/lib/supabase';
 import { 
@@ -13,9 +14,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Trophy, Settings, LogOut, Shield, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 export function Navigation() {
   const { user, loading, mounted } = useAuth();
+  const isAdmin = useIsAdmin();
 
   const handleSignOut = async () => {
     try {
@@ -37,10 +40,12 @@ export function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center space-x-2">
-              <img 
+              <Image 
                 src="/Logo.png" 
                 alt="ClashArenaGG Logo"
-                className="w-8 h-8 rounded-full"
+                width={32}
+                height={32}
+                className="rounded-full"
               />
               <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">
                 ClashArenaGG
@@ -69,10 +74,12 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-                          <img 
+                          <Image 
                 src="/Logo.png" 
                 alt="ClashArenaGG Logo"
-                className="w-8 h-8 rounded-full"
+                width={32}
+                height={32}
+                className="rounded-full"
               />
             <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-500">ClashArenaGG</span>
           </Link>
@@ -94,7 +101,7 @@ export function Navigation() {
                   </Link>
                 </DropdownMenuItem>
                 {/* Solo TheFLAKOO puede crear torneos */}
-                {user?.email === 'dvdsalomon6@gmail.com' && (
+                {isAdmin && (
                   <DropdownMenuItem asChild>
                     <Link href="/tournaments/create" className="flex items-center">
                       <Trophy className="mr-2 h-4 w-4" />

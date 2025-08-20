@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { riotApi } from '@/lib/riot/client';
+// TODO: Migrar a nuevo cliente unificado
+// import { riotApi } from '@/lib/riot/client';
 
 interface MatchResult {
   win: boolean;
@@ -61,19 +62,25 @@ export async function POST(request: NextRequest) {
             .limit(1)
             .single();
 
+          // TODO: Migrar a nuevo cliente unificado
           // Configurar región
-          riotApi.setRouting(riotAccount.platform);
+          // riotApi.setPlatform(riotAccount.platform);
 
           // Obtener partidas recientes
-          const matchIds = await riotApi.getMatchIds({
-            puuid: riotAccount.puuid,
-            startTime: lastMatch 
-              ? Math.floor(new Date(lastMatch.game_start).getTime() / 1000)
-              : Math.floor(new Date(registration.registered_at).getTime() / 1000),
-            endTime: Math.floor(new Date(tournament.end_at).getTime() / 1000),
-            count: 20,
-          });
+          // const matchIds = await riotApi.getMatchIds({
+          //   puuid: riotAccount.puuid,
+          //   startTime: lastMatch 
+          //     ? Math.floor(new Date(lastMatch.game_start).getTime() / 1000)
+          //     : Math.floor(new Date(registration.registered_at).getTime() / 1000),
+          //   endTime: Math.floor(new Date(tournament.end_at).getTime() / 1000),
+          //   count: 20,
+          // });
+          
+          // Temporalmente saltar este usuario hasta migrar
+          continue;
 
+          // TODO: Migrar a nuevo cliente unificado - código temporalmente comentado
+          /*
           for (const matchId of matchIds) {
             // Verificar si ya procesamos esta partida
             const { data: existingMatch } = await supabase
@@ -84,8 +91,9 @@ export async function POST(request: NextRequest) {
 
             if (existingMatch) continue;
 
+            // TODO: Migrar a nuevo cliente unificado
             // Obtener detalles de la partida
-            const matchData = await riotApi.getMatch(matchId);
+            // const matchData = await riotApi.getMatch(matchId);
             
             // Encontrar al jugador en la partida
             const player = matchData.info.participants.find(
@@ -186,6 +194,7 @@ export async function POST(request: NextRequest) {
 
             processedMatches++;
           }
+          */
 
         } catch (error) {
           console.error(`Error procesando usuario ${registration.user_id}:`, error);

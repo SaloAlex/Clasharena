@@ -19,7 +19,7 @@ export async function POST() {
     }
 
     // 2. Eliminar la cuenta vinculada
-    const { error: deleteError } = await supabaseAdmin
+    const { error: deleteError } = await supabase
       .from('riot_accounts')
       .delete()
       .eq('user_id', user.id);

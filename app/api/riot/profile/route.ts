@@ -19,11 +19,11 @@ export async function GET() {
     }
 
     // 2. Obtener cuenta de Riot vinculada
-    const { data: riotAccount, error: accountError } = await supabaseAdmin
+    const { data: riotAccount, error: accountError } = await supabase
       .from('riot_accounts')
-      .select('*')
+      .select('game_name, tag_line, platform, verified, puuid')
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (accountError && accountError.code !== 'PGRST116') {
       console.error('Error al obtener cuenta de Riot:', accountError);

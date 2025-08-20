@@ -1,56 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { RiotAPI } from '@/lib/riot/api';
+
 const VALID_PLATFORMS = ['LA1', 'LA2', 'NA1', 'BR1'];
-import { supabaseAdmin } from '@/lib/supabase/admin';
 
-export const dynamic = 'force-dynamic';
+export async function POST(req: Request) {
+  const supabase = createRouteHandlerClient({ cookies });
 
-export async function POST(request: NextRequest) {
   try {
-    // 1. Obtener usuario autenticado
-    const supabase = createRouteHandlerClient({ cookies });
+    // 1) Auth
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Autenticación requerida' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Autenticación requerida' }, { status: 401 });
     }
 
-    // 2. Obtener y validar datos del request
-    const body = await request.json();
+    // 2) Datos de entrada
+    const body = await req.json();
     const { gameName, tagLine, platform } = body;
 
     if (!gameName || !tagLine || !platform) {
-      return NextResponse.json(
-        { error: 'Faltan datos requeridos' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Faltan datos requeridos' }, { status: 400 });
     }
 
-    // Validar que la plataforma es válida
-    const isValidPlatform = VALID_PLATFORMS.includes(platform);
-    
-    if (!isValidPlatform) {
-      return NextResponse.json(
-        { error: 'Plataforma no válida' },
-        { status: 400 }
-      );
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return NextResponse.json({ error: 'Plataforma no válida' }, { status: 400 });
     }
 
-    // 3. Verificar que el usuario no tenga ya una cuenta verificada
-    console.log('Verificando cuentas existentes...');
-    const { data: existingAccount } = await supabaseAdmin
+    // Verificar si ya tiene una cuenta verificada
+    const { data: existingAccount } = await supabase
       .from('riot_accounts')
       .select('*')
       .eq('user_id', user.id)
       .eq('verified', true)
-      .single();
+      .maybeSingle();
 
-    console.log('Cuenta existente:', existingAccount);
     if (existingAccount) {
       return NextResponse.json(
         { error: 'Ya tienes una cuenta de Riot verificada' },
@@ -58,76 +41,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Inicializar API de Riot
-    const riotApi = new RiotAPI();
+    // 3) Resolver datos de Riot usando el nuevo cliente unificado
+    const regional = platform === 'LA1' || platform === 'LA2' || platform === 'NA1' || platform === 'BR1' ? 'americas' : 'europe';
+    const url = `https://${regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'X-Riot-Token': process.env.RIOT_API_KEY!
+      }
+    });
+    
+    if (!response.ok) {
+      return NextResponse.json({ error: 'No se encontró la cuenta de Riot' }, { status: 404 });
+    }
+    
+    const account = await response.json();
 
-    // 5. Verificar que la cuenta existe
-    const account = await riotApi.getAccountByRiotId(gameName, tagLine, platform);
-    if (!account) {
-      return NextResponse.json(
-        { error: 'No se encontró la cuenta de Riot' },
-        { status: 404 }
-      );
+    // 4) Guardar/actualizar cuenta con UPSERT por user_id
+    const row = {
+      user_id: user.id,
+      puuid: account.puuid,
+      game_name: gameName,
+      tag_line: tagLine,
+      platform,
+      verified: false,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await supabase
+      .from('riot_accounts')
+      .upsert(row, { onConflict: 'user_id' });
+
+    if (upsertError) {
+      console.error('Error al guardar cuenta:', upsertError);
+      return NextResponse.json({ error: 'No se pudo guardar la cuenta' }, { status: 500 });
     }
 
-    // 6. Obtener datos del invocador
-    const summoner = await riotApi.getSummonerByPuuid(account.puuid, platform);
-    if (!summoner) {
-      return NextResponse.json(
-        { error: 'No se encontró el invocador' },
-        { status: 404 }
-      );
-    }
+    // 5) Crear challenge - usar solo íconos gratuitos (0-28)
+    const iconId = Math.floor(Math.random() * 29); // Íconos gratuitos por defecto
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutos
 
-    // 7. Generar código de desafío (número aleatorio entre 0 y 29 - íconos por defecto)
-    const icon_id = Math.floor(Math.random() * 30);
-    const expires_at = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos
-
-    // 8. Guardar el desafío en la base de datos
-    const { error: challengeError } = await supabaseAdmin
+    const { error: challengeError } = await supabase
       .from('verification_challenges')
       .insert({
         user_id: user.id,
-        icon_id,
-        expires_at,
+        icon_id: iconId,
+        expires_at: expiresAt,
+        completed: false,
       });
 
     if (challengeError) {
-      console.error('Error al crear desafío:', challengeError);
-      return NextResponse.json(
-        { error: 'Error al crear el desafío de verificación' },
-        { status: 500 }
-      );
+      console.error('Error creando challenge:', challengeError);
+      return NextResponse.json({ error: 'No se pudo crear el desafío' }, { status: 500 });
     }
 
-    // 9. Guardar o actualizar la cuenta de Riot (sin verificar aún)
-    const { error: accountError } = await supabaseAdmin
-      .from('riot_accounts')
-      .upsert({
-        user_id: user.id,
-        puuid: account.puuid,
-        game_name: gameName,
-        tag_line: tagLine,
-        platform,
-        verified: false,
-      }, {
-        onConflict: 'user_id',
-        ignoreDuplicates: false
-      });
-
-    if (accountError) {
-      console.error('Error al guardar cuenta:', accountError);
-      return NextResponse.json(
-        { error: 'Error al guardar la información de la cuenta' },
-        { status: 500 }
-      );
-    }
-
-    // 10. Devolver información del desafío
     return NextResponse.json({
       success: true,
-      icon_id,
-      expires_at,
+      icon_id: iconId,
+      expires_at: expiresAt,
       message: 'Cambia tu ícono de invocador al indicado y luego verifica'
     });
 

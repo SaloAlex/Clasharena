@@ -34,7 +34,7 @@ export default function ProfilePage() {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          router.push('/login');
+          router.push('/auth');
           return;
         }
 
@@ -180,7 +180,6 @@ export default function ProfilePage() {
         {riotAccount?.verified && riotAccount.puuid && (
           <ChampionMastery 
             puuid={riotAccount.puuid}
-            region={riotAccount.platform.toLowerCase()}
           />
         )}
 

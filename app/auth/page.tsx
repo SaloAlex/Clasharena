@@ -14,7 +14,18 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/tournaments';
+  const redirectTo = searchParams.get('redirectTo') || '/tournaments';
+
+  // Verificar si hay una sesión activa al cargar la página
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.replace(redirectTo);
+      }
+    };
+    checkExistingSession();
+  }, [router, redirectTo]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -40,9 +51,8 @@ export default function AuthPage() {
         
         if (session) {
           console.log('✅ Session established:', session.user.email);
-          console.log('Redirecting to:', redirectTo);
           toast.success('¡Sesión iniciada correctamente!');
-          router.push(redirectTo);
+          router.replace(redirectTo);
         } else if (attempts < maxAttempts) {
           attempts++;
           setTimeout(checkSession, 500);
@@ -84,7 +94,7 @@ export default function AuthPage() {
       await signUp(email, password);
       toast.success('Account created successfully!');
       // Para nuevos usuarios, siempre ir a link-riot
-      router.push('/link-riot');
+      router.replace('/link-riot');
     } catch (error: any) {
       toast.error(error.message);
     } finally {

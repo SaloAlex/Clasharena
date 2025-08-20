@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,14 +22,14 @@ export async function POST(
     }
 
     // Verificar que el usuario es admin del torneo
-    const isAdmin = await prisma.tournamentAdmin.findFirst({
-      where: {
-        tournamentId,
-        userId: user.id
-      }
-    });
+    const { data: isAdmin, error: adminError } = await supabase
+      .from('tournament_admins')
+      .select()
+      .eq('tournament_id', tournamentId)
+      .eq('user_id', user.id)
+      .single();
 
-    if (!isAdmin) {
+    if (adminError || !isAdmin) {
       return NextResponse.json(
         { error: 'No tienes permisos para ajustar puntos' },
         { status: 403 }
@@ -57,34 +56,44 @@ export async function POST(
     }
 
     // Crear el ajuste
-    const adjustment = await prisma.tournamentPointAdjustment.create({
-      data: {
-        tournamentId,
-        userId,
+    const { data: adjustment, error: adjustmentError } = await supabase
+      .from('tournament_point_adjustments')
+      .insert({
+        tournament_id: tournamentId,
+        user_id: userId,
         points,
         reason,
-        evidenceUrl,
-        matchId,
-        matchDate: matchDate ? new Date(matchDate) : null,
-        createdBy: user.id,
+        evidence_url: evidenceUrl,
+        match_id: matchId,
+        match_date: matchDate ? new Date(matchDate).toISOString() : null,
+        created_by: user.id,
         notes
-      }
-    });
+      })
+      .select()
+      .single();
+
+    if (adjustmentError) {
+      throw adjustmentError;
+    }
 
     // Registrar en el historial de actividad del torneo
-    await prisma.tournamentActivity.create({
-      data: {
-        tournamentId,
-        userId: user.id,
-        action: 'POINTS_ADJUSTED',
+    const { error: activityError } = await supabase
+      .from('tournament_activities')
+      .insert({
+        tournament_id: tournamentId,
+        user_id: user.id,
+        activity_type: 'POINTS_ADJUSTED',
         details: {
-          adjustmentId: adjustment.id,
+          adjustment_id: adjustment.id,
           points,
           reason,
-          targetUserId: userId
+          target_user_id: userId
         }
-      }
-    });
+      });
+
+    if (activityError) {
+      console.error('Error registrando actividad:', activityError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -102,4 +111,3 @@ export async function POST(
     );
   }
 }
-

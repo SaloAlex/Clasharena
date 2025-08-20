@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { DataDragonImage } from '@/components/ui/data-dragon-image';
 
 interface VerificationChallengeModalProps {
   isOpen: boolean;
@@ -69,10 +69,12 @@ export function VerificationChallengeModal({
         
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="relative w-32 h-32 border-2 border-blue-500 rounded-lg overflow-hidden">
-            <Image
-              src={`https://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${iconId}.png`}
+            <DataDragonImage
+              type="profileicon"
+              identifier={iconId}
               alt={`Ícono ${iconId}`}
-              fill
+              width={128}
+              height={128}
               className="object-cover"
             />
           </div>

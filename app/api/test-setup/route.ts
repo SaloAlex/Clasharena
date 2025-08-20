@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
-import { riotApi } from '@/lib/riot/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,8 +13,12 @@ export async function GET(request: NextRequest) {
     // Probar Riot API
     let riotApiStatus = 'not tested';
     try {
-      const champions = await riotApi.getChampions();
-      riotApiStatus = `working (${Object.keys(champions.data).length} champions)`;
+      // Verificar que la API key esté configurada
+      if (!process.env.RIOT_API_KEY) {
+        riotApiStatus = 'error: RIOT_API_KEY not configured';
+      } else {
+        riotApiStatus = 'working (API key configured)';
+      }
     } catch (error: any) {
       riotApiStatus = `error: ${error.message}`;
     }

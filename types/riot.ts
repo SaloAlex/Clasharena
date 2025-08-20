@@ -6,6 +6,7 @@ export interface RiotAccount {
   tag_line: string;
   platform: string;
   verified: boolean;
+  summoner_id?: string;
   created_at: string;
   updated_at: string;
 }

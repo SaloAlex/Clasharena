@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { riotApi } from '@/lib/riot/client';
+// TODO: Migrar a nuevo cliente unificado
+// import { riotApi } from '@/lib/riot/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +28,12 @@ export async function GET(
       );
     }
 
+    // TODO: Migrar a nuevo cliente unificado
     // Obtener información del summoner
-    const summonerData = await riotApi.getSummonerByPuuid(puuid, region);
+    // const summonerData = await riotApi.getSummonerByPuuid(puuid, region);
     
     // Obtener información de liga
-    const leagueData = await riotApi.getLeagueEntries(summonerData.id, region);
+    // const leagueData = await riotApi.getLeagueEntries(summonerData.id, region);
 
     // Procesar datos de liga
     const soloQueue = leagueData.find((entry: any) => entry.queueType === 'RANKED_SOLO_5x5');
@@ -57,22 +59,10 @@ export async function GET(
     };
 
     return NextResponse.json({
-      success: true,
-      summoner: {
-        name: summonerData.name,
-        level: summonerData.summonerLevel,
-        profileIconId: summonerData.profileIconId,
-        revisionDate: summonerData.revisionDate,
-        accountId: summonerData.accountId,
-        id: summonerData.id,
-        puuid: summonerData.puuid
-      },
-      ranks: {
-        soloQueue: formatRank(soloQueue),
-        flexQueue: formatRank(flexQueue)
-      },
-      region: region
-    });
+      success: false,
+      error: 'Endpoint temporalmente deshabilitado - migrando a nuevo cliente',
+      message: 'Este endpoint será reimplementado con el nuevo cliente unificado'
+    }, { status: 503 });
 
   } catch (error: any) {
     console.error('Error obteniendo información del jugador:', error);

@@ -6,127 +6,140 @@ export async function GET(req: Request) {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    console.log('Fetching tournaments for user:', user.email);
+    
     const { data: tournaments, error } = await supabase
       .from('tournaments')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[TOURNAMENTS_GET]', error);
-      return new NextResponse("Error al obtener torneos", { status: 500 });
+      console.error('[TOURNAMENTS_GET] Error:', error);
+      console.error('[TOURNAMENTS_GET] Error code:', error.code);
+      console.error('[TOURNAMENTS_GET] Error message:', error.message);
+      console.error('[TOURNAMENTS_GET] Error details:', error.details);
+      
+      return NextResponse.json({ 
+        error: 'Error al obtener torneos',
+        details: error.message,
+        code: error.code
+      }, { status: 500 });
+    }
+
+    if (!tournaments) {
+      return NextResponse.json([], { status: 200 });
     }
 
     return NextResponse.json(tournaments);
   } catch (error) {
     console.error('[TOURNAMENTS_GET]', error);
-    return new NextResponse("Error interno del servidor", { status: 500 });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
+}
+
+function parseJSON<T>(v: unknown, fallback: T): T {
+  if (v == null) return fallback;
+  if (typeof v === 'string') {
+    try { 
+      return JSON.parse(v) as T; 
+    } catch { 
+      return fallback; 
+    }
+  }
+  return v as T;
 }
 
 export async function POST(req: Request) {
   try {
-    console.log('=== INICIO POST TOURNAMENTS ===');
     const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const body = await req.json();
+
+    // Coaccionar/validar fechas
+    const startAt = new Date(body.start_at ?? body.startDate);
+    const endAt = new Date(body.end_at ?? body.endDate);
+    if (Number.isNaN(+startAt) || Number.isNaN(+endAt)) {
+      return NextResponse.json({ error: 'Fechas inválidas' }, { status: 400 });
+    }
+
+    if (endAt <= startAt) {
+      return NextResponse.json({ error: 'La fecha de fin debe ser posterior a la de inicio' }, { status: 400 });
+    }
+
+    // Coaccionar JSONB
+    const queues = parseJSON(body.queues, {
+      ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
+      ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
+      normal_draft: { enabled: false, pointMultiplier: 0.6, id: 400 },
+      normal_blind: { enabled: false, pointMultiplier: 0.5, id: 430 },
+      aram: { enabled: false, pointMultiplier: 0.4, id: 450 },
+    });
+
+    const prizes = parseJSON(body.prizes, { first: '', second: '', third: '' });
+
+    // Números con fallback
+    const toInt = (x: unknown, def = 0) => (Number.isFinite(Number(x)) ? Number(x) : def);
+
+    const payload = {
+      creator_id: user.id,
+      title: String(body.title ?? '').trim(),
+      description: String(body.description ?? '').trim(),
+      format: String(body.format ?? 'league'),
+      status: 'upcoming' as const,
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      points_per_win: toInt(body.pointsPerWin, 100),
+      points_per_loss: toInt(body.pointsPerLoss, 0),
+      queues: parseJSON(body.queues, {
+        ranked_solo: { enabled: true, multiplier: 1.0 },
+        ranked_flex: { enabled: true, multiplier: 0.8 },
+        normal_draft: { enabled: false, multiplier: 0.6 }
+      }),
+      prizes: parseJSON(body.prizes, { first: '', second: '', third: '' })
+    };
+
+    // Validaciones básicas
+    if (!payload.title) {
+      return NextResponse.json({ error: 'Título requerido' }, { status: 400 });
+    }
+
+    if (!payload.description) {
+      return NextResponse.json({ error: 'Descripción requerida' }, { status: 400 });
+    }
+
+    console.log('Creating tournament with payload:', payload);
     
-    // Verificar autenticación
-    console.log('Verificando autenticación...');
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
-    if (authError) {
-      console.error('Error de autenticación:', authError);
-      return NextResponse.json('Error de autenticación', { status: 401 });
-    }
-    if (!session) {
-      console.error('No hay sesión');
-      return NextResponse.json('No autorizado', { status: 401 });
-    }
-    console.log('Usuario autenticado:', session.user.id);
-
-    const formData = await req.json();
-    console.log('Datos recibidos:', JSON.stringify(formData, null, 2));
-
-    // Validar campos básicos
-    if (!formData.title || formData.title.trim().length < 3) {
-      console.error('Título inválido');
-      return NextResponse.json('Título debe tener al menos 3 caracteres', { status: 400 });
-    }
-
-    if (!formData.description || formData.description.trim().length < 10) {
-      console.error('Descripción inválida');
-      return NextResponse.json('Descripción debe tener al menos 10 caracteres', { status: 400 });
-    }
-
-    // Validar fechas
-    const startDate = new Date(formData.startDate);
-    const endDate = new Date(formData.endDate);
-    if (endDate <= startDate) {
-      console.error('Fechas inválidas');
-      return NextResponse.json('La fecha de fin debe ser posterior a la de inicio', { status: 400 });
-    }
-
-    // Obtener colas habilitadas como array de enteros
-    const enabledQueueIds = Object.entries(formData.queues || {})
-      .filter(([_, config]: [string, any]) => config.enabled)
-      .map(([_, config]: [string, any]) => config.id);
-
-    console.log('Colas habilitadas:', enabledQueueIds);
-
-    if (enabledQueueIds.length === 0) {
-      console.error('No hay colas habilitadas');
-      return NextResponse.json('Debes habilitar al menos una cola', { status: 400 });
-    }
-
-    // Preparar scoring_json con toda la configuración avanzada
-    const scoringJson = {
-      queueConfigs: formData.queues, // Configuración completa de colas
-      customRules: formData.customRules || '',
-      prizes: formData.prizes || { first: '', second: '', third: '' }
-    };
-
-    // Preparar datos para insertar según la estructura real de la tabla
-    const tournamentData = {
-      creator_id: session.user.id,
-      title: formData.title.trim(),
-      description: formData.description.trim(),
-      format: formData.format || 'duration',
-      status: 'upcoming',
-      start_at: formData.startDate,  // Usar start_at
-      end_at: formData.endDate,      // Usar end_at
-      queues: formData.queues,       // JSONB con toda la configuración
-      points_per_win: parseInt(formData.pointsPerWin) || 3,
-      points_per_loss: parseInt(formData.pointsPerLoss) || 0,
-      points_first_blood: parseInt(formData.pointsFirstBlood) || 0,
-      points_first_tower: parseInt(formData.pointsFirstTower) || 0,
-      points_perfect_game: parseInt(formData.pointsPerfectGame) || 0,
-      min_rank: formData.minRank || null,
-      max_rank: formData.maxRank || null,
-      max_games_per_day: parseInt(formData.maxGamesPerDay) || null,
-      scoring_json: scoringJson,
-      custom_rules: formData.customRules || '',
-      prizes: formData.prizes || { first: '', second: '', third: '' },
-      allowed_queues: formData.queues, // Duplicar en allowed_queues también
-      allowed_champions: [],           // Array vacío por defecto
-      banned_champions: []             // Array vacío por defecto
-    };
-
-    console.log('Datos a insertar:', JSON.stringify(tournamentData, null, 2));
-
-    // Insertar en la base de datos
-    const { data: tournament, error } = await supabase
+    const { data, error } = await supabase
       .from('tournaments')
-      .insert(tournamentData)
-      .select()
+      .insert(payload)
+      .select('id')
       .single();
 
     if (error) {
-      console.error('Error al insertar en BD:', error);
-      return NextResponse.json(`Error de base de datos: ${error.message}`, { status: 500 });
+      console.error('DB error:', error);
+      return NextResponse.json({ 
+        error: `Error al crear torneo: ${error.message}`,
+        code: error.code,
+        details: error.details
+      }, { status: error.code === '42501' ? 403 : 500 });
     }
 
-    console.log('Torneo creado exitosamente:', tournament.id);
-    return NextResponse.json(tournament);
+    console.log('Tournament created successfully:', data);
+    return NextResponse.json({ ok: true, id: data.id }, { status: 201 });
 
   } catch (error: any) {
     console.error('Error inesperado:', error);
-    return NextResponse.json(`Error interno: ${error.message}`, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

@@ -65,7 +65,8 @@ class MemoryRateLimiter {
 
   private cleanup() {
     const now = Date.now();
-    for (const [key, entry] of this.store.entries()) {
+    const entries = Array.from(this.store.entries());
+    for (const [key, entry] of entries) {
       if (now > entry.resetTime) {
         this.store.delete(key);
       }
@@ -173,7 +174,7 @@ export function withRateLimit(
           status: 429,
           headers: {
             'Content-Type': 'application/json',
-            'X-RateLimit-Limit': RATE_LIMIT_CONFIGS[type].maxRequests.toString(),
+            'X-RateLimit-Limit': (type === 'riotApi' ? RATE_LIMIT_CONFIGS.RIOT_API.maxRequests : RATE_LIMIT_CONFIGS[type.toUpperCase() as keyof typeof RATE_LIMIT_CONFIGS].maxRequests).toString(),
             'X-RateLimit-Remaining': result.remaining.toString(),
             'X-RateLimit-Reset': result.resetTime.toString(),
             'Retry-After': result.retryAfter?.toString() || '60',
@@ -191,7 +192,7 @@ export function withRateLimit(
       statusText: response.statusText,
       headers: {
         ...Object.fromEntries(response.headers.entries()),
-        'X-RateLimit-Limit': RATE_LIMIT_CONFIGS[type].maxRequests.toString(),
+        'X-RateLimit-Limit': (type === 'riotApi' ? RATE_LIMIT_CONFIGS.RIOT_API.maxRequests : RATE_LIMIT_CONFIGS[type.toUpperCase() as keyof typeof RATE_LIMIT_CONFIGS].maxRequests).toString(),
         'X-RateLimit-Remaining': result.remaining.toString(),
         'X-RateLimit-Reset': result.resetTime.toString(),
       },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDistance } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -10,6 +10,34 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayerStats } from '@/components/PlayerStats';
+import Image from 'next/image';
+
+interface MatchItem {
+  name: string;
+  image: string;
+  gold: number;
+}
+
+interface MatchRuneStyle {
+  name: string;
+  icon: string;
+}
+
+interface MatchBuild {
+  summonerSpells?: {
+    d?: { name: string; image: string; };
+    f?: { name: string; image: string; };
+  };
+  items?: MatchItem[];
+  runes?: {
+    primary?: {
+      style: MatchRuneStyle;
+    };
+    secondary?: {
+      style: MatchRuneStyle;
+    };
+  };
+}
 
 interface Match {
   matchId: string;
@@ -42,6 +70,7 @@ interface Match {
     position: string;
     lane: string;
   };
+  build?: MatchBuild;
 }
 
 interface MatchHistoryProps {
@@ -66,45 +95,7 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
   const [selectedQueue, setSelectedQueue] = useState<string>('all');
   const [stats, setStats] = useState<MatchStats | null>(null);
 
-  useEffect(() => {
-    loadMatches();
-    
-    // Actualizar cada 2 minutos
-    const interval = setInterval(loadMatches, 2 * 60 * 1000);
-    
-    return () => clearInterval(interval);
-  }, [puuid]);
-
-  const loadMatches = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/player/matches/${puuid}?count=20`, {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Error al obtener las partidas');
-      }
-      
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Error al cargar las partidas');
-      }
-
-      setMatches(data.matches);
-      calculateStats(data.matches);
-    } catch (error: any) {
-      setError(error.message);
-
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const calculateStats = (matches: Match[]) => {
+  const calculateStats = useCallback((matches: Match[]) => {
     if (!matches.length) return;
 
     const championsCount: { [key: string]: number } = {};
@@ -117,15 +108,18 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
     let wins = 0;
 
     matches.forEach(match => {
-      championsCount[match.champion.name] = (championsCount[match.champion.name] || 0) + 1;
-      rolesCount[match.team.position || match.team.lane] = (rolesCount[match.team.position || match.team.lane] || 0) + 1;
+      const championName = match.champion?.name || 'Unknown';
+      const role = match.team?.position || match.team?.lane || 'Unknown';
       
-      totalKills += match.stats.kills;
-      totalDeaths += match.stats.deaths;
-      totalAssists += match.stats.assists;
-      totalCS += match.stats.cs;
-      totalDuration += match.gameDuration;
-      if (match.stats.win) wins++;
+      championsCount[championName] = (championsCount[championName] || 0) + 1;
+      rolesCount[role] = (rolesCount[role] || 0) + 1;
+      
+      totalKills += match.stats?.kills || 0;
+      totalDeaths += match.stats?.deaths || 0;
+      totalAssists += match.stats?.assists || 0;
+      totalCS += match.stats?.cs || 0;
+      totalDuration += match.gameDuration || 0;
+      if (match.stats?.win) wins++;
     });
 
     const mostPlayedChampion = Object.entries(championsCount)
@@ -146,7 +140,44 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
       mostPlayedChampion,
       mostPlayedRole
     });
-  };
+  }, []);
+
+  const loadMatches = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await fetch(`/api/player/matches?puuid=${encodeURIComponent(puuid)}&count=20`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Error al obtener las partidas');
+      }
+      
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || 'Error al cargar las partidas');
+      }
+
+      setMatches(data.data.matches);
+      calculateStats(data.data.matches);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [puuid, calculateStats]);
+
+  useEffect(() => {
+    loadMatches();
+    
+    // Actualizar cada 2 minutos
+    const interval = setInterval(loadMatches, 2 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, [loadMatches]);
 
   if (isLoading) {
     return (
@@ -226,12 +257,12 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
           <ScrollArea className="h-[600px]">
             <div className="space-y-2 p-4">
               {matches
-                .filter(match => selectedQueue === 'all' || match.queue.description.toLowerCase().includes(selectedQueue))
+                .filter(match => selectedQueue === 'all' || match.queue?.description?.toLowerCase().includes(selectedQueue))
                 .map((match) => (
                   <div
                     key={match.matchId}
                     className={`p-4 rounded-lg transition-all hover:scale-[1.02] ${
-                      match.stats.win ? 'bg-green-900/20 hover:bg-green-900/30' : 'bg-red-900/20 hover:bg-red-900/30'
+                      match.stats?.win ? 'bg-green-900/20 hover:bg-green-900/30' : 'bg-red-900/20 hover:bg-red-900/30'
                     }`}
                   >
                     <div className="grid grid-cols-12 gap-4 items-center">
@@ -239,22 +270,24 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                       <div className="col-span-3">
                         <div className="flex items-center space-x-3">
                           <div className="relative">
-                            <img
-                              src={match.champion.image}
-                              alt={match.champion.name}
-                              className="w-12 h-12 rounded-full border-2 border-slate-600"
+                            <Image
+                              src={match.champion?.image || '/Logo.png'}
+                              alt={match.champion?.name || 'Unknown'}
+                              width={48}
+                              height={48}
+                              className="rounded-full border-2 border-slate-600"
                             />
                             <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
                               <span className="text-xs font-bold">
-                                {match.team.position === 'UTILITY' ? 'SUP' : 
-                                 match.team.position === 'BOTTOM' ? 'ADC' :
-                                 match.team.position?.slice(0, 3).toUpperCase() || '?'}
+                                {match.team?.position === 'UTILITY' ? 'SUP' : 
+                                 match.team?.position === 'BOTTOM' ? 'ADC' :
+                                 match.team?.position?.slice(0, 3).toUpperCase() || '?'}
                               </span>
                             </div>
                           </div>
                           <div>
-                            <p className="text-white font-medium">{match.champion.name}</p>
-                            <p className="text-sm text-slate-400">{match.queue.description}</p>
+                            <p className="text-white font-medium">{match.champion?.name || 'Unknown'}</p>
+                            <p className="text-sm text-slate-400">{match.queue?.description || 'Unknown'}</p>
                           </div>
                         </div>
                       </div>
@@ -263,12 +296,12 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                       <div className="col-span-2">
                         <div className="text-center">
                           <p className="text-white text-lg font-bold">
-                            {match.stats.kills} / <span className="text-red-400">{match.stats.deaths}</span> / {match.stats.assists}
+                            {match.stats?.kills || 0} / <span className="text-red-400">{match.stats?.deaths || 0}</span> / {match.stats?.assists || 0}
                           </p>
                           <div className="flex items-center justify-center space-x-3 text-sm text-slate-400">
-                            <span>KDA: {match.stats.kda}</span>
+                            <span>KDA: {match.stats?.kda || '0.00'}</span>
                             <span>•</span>
-                            <span>CS: {match.stats.cs}</span>
+                            <span>CS: {match.stats?.cs || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -279,18 +312,22 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                           {/* Hechizos de invocador */}
                           <div className="flex flex-col gap-1">
                             {match.build?.summonerSpells?.d && (
-                              <img 
+                              <Image 
                                 src={match.build.summonerSpells.d.image}
                                 alt={match.build.summonerSpells.d.name}
-                                className="w-6 h-6 rounded-md"
+                                width={24}
+                                height={24}
+                                className="rounded-md"
                                 title={match.build.summonerSpells.d.name}
                               />
                             )}
                             {match.build?.summonerSpells?.f && (
-                              <img 
+                              <Image 
                                 src={match.build.summonerSpells.f.image}
                                 alt={match.build.summonerSpells.f.name}
-                                className="w-6 h-6 rounded-md"
+                                width={24}
+                                height={24}
+                                className="rounded-md"
                                 title={match.build.summonerSpells.f.name}
                               />
                             )}
@@ -298,12 +335,14 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
 
                           {/* Items */}
                           <div className="grid grid-cols-4 gap-1">
-                            {match.build?.items?.map((item, index) => (
+                            {match.build?.items?.map((item: MatchItem, index: number) => (
                               <div key={index} className="relative group">
-                                <img 
+                                <Image 
                                   src={item.image}
                                   alt={item.name}
-                                  className="w-6 h-6 rounded-md"
+                                  width={24}
+                                  height={24}
+                                  className="rounded-md"
                                 />
                                 <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
                                   <p className="font-medium">{item.name}</p>
@@ -317,10 +356,12 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                           {match.build?.runes?.primary?.style && (
                             <div className="flex items-center gap-1">
                               <div className="relative group">
-                                <img 
+                                <Image 
                                   src={match.build.runes.primary.style.icon}
                                   alt={match.build.runes.primary.style.name}
-                                  className="w-6 h-6 rounded-full"
+                                  width={24}
+                                  height={24}
+                                  className="rounded-full"
                                 />
                                 <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
                                   {match.build.runes.primary.style.name}
@@ -328,10 +369,12 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                               </div>
                               {match.build.runes.secondary?.style && (
                                 <div className="relative group">
-                                  <img 
+                                  <Image 
                                     src={match.build.runes.secondary.style.icon}
                                     alt={match.build.runes.secondary.style.name}
-                                    className="w-5 h-5 rounded-full opacity-75"
+                                    width={20}
+                                    height={20}
+                                    className="rounded-full opacity-75"
                                   />
                                   <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
                                     {match.build.runes.secondary.style.name}
@@ -347,10 +390,10 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                       <div className="col-span-2">
                         <div className="text-center">
                           <p className="text-white">
-                            {(match.stats.damageDealt / 1000).toFixed(1)}k dmg
+                            {((match.stats?.damageDealt || 0) / 1000).toFixed(1)}k dmg
                           </p>
                           <p className="text-sm text-slate-400">
-                            Visión: {match.stats.visionScore}
+                            Visión: {match.stats?.visionScore || 0}
                           </p>
                         </div>
                       </div>
@@ -359,12 +402,12 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                       <div className="col-span-2">
                         <div className="text-center">
                           <p className={`font-bold ${
-                            match.stats.win ? 'text-green-400' : 'text-red-400'
+                            match.stats?.win ? 'text-green-400' : 'text-red-400'
                           }`}>
-                            {match.stats.win ? 'Victoria' : 'Derrota'}
+                            {match.stats?.win ? 'Victoria' : 'Derrota'}
                           </p>
                           <p className="text-sm text-slate-400">
-                            {match.gameDuration} min • {formatDistance(new Date(match.gameCreation), new Date(), {
+                            {match.gameDuration || 0} min • {formatDistance(new Date(match.gameCreation || Date.now()), new Date(), {
                               addSuffix: true,
                               locale: es,
                               includeSeconds: true

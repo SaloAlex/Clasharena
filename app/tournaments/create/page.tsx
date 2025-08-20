@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DateTimePicker } from '@/components/ui/date-time-picker';
+import { DateTimePicker, DateTimePickerProps } from '@/components/ui/date-time-picker';
 import { toast } from 'sonner';
 import { Trophy, Calendar, Medal, Settings, Gamepad2, Gift, Scroll } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 interface QueueConfig {
   enabled: boolean;
   pointMultiplier: number;
+  id: number;
 }
 
 interface TournamentFormData {
@@ -90,10 +91,10 @@ export default function CreateTournamentPage() {
     }
   }, [user, router]);
 
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+
   // Evita parpadeo: si hay usuario y no es admin, no renderizamos el form
   if (user && user.email !== 'dvdsalomon6@gmail.com') return null;
-
-  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
@@ -180,10 +181,20 @@ export default function CreateTournamentPage() {
 
     try {
       console.log('Sending form data:', formData);
+      const payload = {
+        ...formData,
+        start_at: formData.startDate.toISOString(),
+        end_at: formData.endDate.toISOString(),
+        // Asegurar que queues y prizes sean objetos
+        queues: formData.queues,
+        prizes: formData.prizes,
+      };
+
       const response = await fetch('/api/tournaments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        credentials: 'include',
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -297,31 +308,37 @@ export default function CreateTournamentPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="startDate" className="text-white">Fecha de Inicio</Label>
-                  <DateTimePicker
-                    value={formData.startDate}
-                    onChange={(date: Date) => {
-                      setFormData({ ...formData, startDate: date });
-                      if (formErrors.startDate) {
-                        setFormErrors({ ...formErrors, startDate: '' });
-                      }
-                    }}
-                    minDate={new Date()}
-                    error={formErrors.startDate}
-                  />
+                  <div className="space-y-1">
+                    <DateTimePicker
+                      value={formData.startDate}
+                      onChange={(date: Date) => {
+                        setFormData({ ...formData, startDate: date });
+                        if (formErrors.startDate) {
+                          setFormErrors({ ...formErrors, startDate: '' });
+                        }
+                      }}
+                    />
+                    {formErrors.startDate && (
+                      <p className="text-sm text-red-500">{formErrors.startDate}</p>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate" className="text-white">Fecha de Fin</Label>
-                  <DateTimePicker
-                    value={formData.endDate}
-                    onChange={(date: Date) => {
-                      setFormData({ ...formData, endDate: date });
-                      if (formErrors.endDate) {
-                        setFormErrors({ ...formErrors, endDate: '' });
-                      }
-                    }}
-                    minDate={formData.startDate}
-                    error={formErrors.endDate}
-                  />
+                  <div className="space-y-1">
+                    <DateTimePicker
+                      value={formData.endDate}
+                      onChange={(date: Date) => {
+                        setFormData({ ...formData, endDate: date });
+                        if (formErrors.endDate) {
+                          setFormErrors({ ...formErrors, endDate: '' });
+                        }
+                      }}
+                    />
+                    {formErrors.endDate && (
+                      <p className="text-sm text-red-500">{formErrors.endDate}</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>

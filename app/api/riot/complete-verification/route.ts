@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
-import { requireAuthRoute } from '@/lib/supabase-server';
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { getSummonerByPuuid } from '@/lib/riot';
 
 export async function POST(request: Request) {
   try {
     // 1. Autenticación
-    const user = await requireAuthRoute();
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Autenticación requerida' },
+        { status: 401 }
+      );
+    }
 
     // 2. Obtener cuenta y desafío activo
-    const { data: account } = await supabaseAdmin
+    const { data: account } = await supabase
       .from('riot_accounts')
       .select('*')
       .eq('user_id', user.id)
@@ -21,7 +29,7 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
 
-    const { data: challenge } = await supabaseAdmin
+    const { data: challenge } = await supabase
       .from('verification_challenges')
       .select('*')
       .eq('user_id', user.id)
@@ -58,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Marcar como verificado
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await supabase
       .from('riot_accounts')
       .update({
         verified: true,
@@ -74,7 +82,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Marcar desafío como completado
-    await supabaseAdmin
+    await supabase
       .from('verification_challenges')
       .update({ completed: true })
       .eq('id', challenge.id);

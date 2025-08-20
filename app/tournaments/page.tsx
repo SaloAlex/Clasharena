@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,17 +26,27 @@ export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadTournaments();
-  }, []);
-
-  const loadTournaments = async () => {
+  const loadTournaments = useCallback(async () => {
     try {
       const response = await fetch('/api/tournaments');
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al cargar torneos');
+        switch (response.status) {
+          case 401:
+            router.replace('/auth');
+            return;
+          case 403:
+            toast.error('No tienes permisos para ver los torneos');
+            return;
+          default:
+            throw new Error(data.error || 'Error al cargar torneos');
+        }
+      }
+
+      if (!Array.isArray(data)) {
+        console.error('Datos recibidos:', data);
+        throw new Error('Formato de datos inválido');
       }
 
       setTournaments(data);
@@ -45,7 +55,11 @@ export default function TournamentsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadTournaments();
+  }, [loadTournaments]);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Fecha no disponible';

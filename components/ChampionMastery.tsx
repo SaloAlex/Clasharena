@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,29 +21,29 @@ interface ChampionMasteryData {
     title: string;
     image: string;
   };
+  // Campos adicionales para datos estimados
+  gamesPlayed?: number;
+  winRate?: number;
+  averageKda?: number;
+  isEstimated?: boolean;
 }
 
 interface ChampionMasteryProps {
   puuid: string;
-  region: string;
 }
 
-export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
+export function ChampionMastery({ puuid }: ChampionMasteryProps) {
   const [masteryData, setMasteryData] = useState<ChampionMasteryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    loadMasteryData();
-  }, [puuid, region]);
-
-  const loadMasteryData = async () => {
+  const loadMasteryData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/player/mastery/${puuid}?region=${region}`, {
+      const response = await fetch(`/api/player/mastery?puuid=${encodeURIComponent(puuid)}`, {
         credentials: 'include'
       });
 
@@ -53,17 +54,22 @@ export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
       const data = await response.json();
 
       if (!data.success) {
-        throw new Error(data.message || 'Error al cargar la maestría');
+        throw new Error(data.error || 'Error al cargar la maestría');
       }
 
-      setMasteryData(data.mastery);
+      setMasteryData(data.data);
     } catch (error: any) {
       setError(error.message);
-
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [puuid]);
+
+  useEffect(() => {
+    loadMasteryData();
+  }, [loadMasteryData]);
+
+
 
   const getMasteryColor = (level: number): string => {
     switch (level) {
@@ -131,6 +137,11 @@ export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
             </CardTitle>
             <p className="text-sm text-slate-400 mt-1">
               {filteredMastery.length} campeones con maestría
+              {masteryData.some(m => m.isEstimated) && (
+                <span className="text-yellow-400 ml-2">
+                  ⚠️ Algunos datos son estimados
+                </span>
+              )}
             </p>
           </div>
           <div className="relative w-full md:w-64">
@@ -165,18 +176,25 @@ export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
                   {/* Encabezado con imagen y nombre */}
                   <div className="flex items-start gap-3">
                     <div className="relative">
-                      <img
+                      <Image
                         src={mastery.championInfo.image}
                         alt={mastery.championInfo.name}
-                        className="w-16 h-16 rounded-lg border-2 border-slate-600 group-hover:border-slate-500 transition-colors"
+                        width={64}
+                        height={64}
+                        className="rounded-lg border-2 border-slate-600 group-hover:border-slate-500 transition-colors"
                       />
                       <div 
                         className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-lg bg-slate-800 
                           flex items-center justify-center font-bold ${getMasteryColor(mastery.championLevel)}
-                          border-2 border-slate-700`}
+                          border-2 border-slate-700 ${mastery.isEstimated ? 'border-yellow-400' : ''}`}
                       >
                         {mastery.championLevel}
                       </div>
+                      {mastery.isEstimated && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
+                          <span className="text-xs text-black font-bold">~</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-white text-lg leading-tight">
@@ -207,6 +225,24 @@ export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
                     </div>
                   </div>
 
+                  {/* Estadísticas adicionales para datos estimados */}
+                  {mastery.isEstimated && mastery.gamesPlayed && (
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                      <div className="text-center">
+                        <p className="text-slate-400">Partidas</p>
+                        <p className="text-white font-semibold">{mastery.gamesPlayed}</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-400">Win Rate</p>
+                        <p className="text-white font-semibold">{(mastery.winRate! * 100).toFixed(0)}%</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-slate-400">KDA</p>
+                        <p className="text-white font-semibold">{mastery.averageKda?.toFixed(1)}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tokens y Cofre */}
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-1">
@@ -226,7 +262,15 @@ export function ChampionMastery({ puuid, region }: ChampionMasteryProps) {
             ))}
           </div>
 
-          {filteredMastery.length === 0 && (
+          {filteredMastery.length === 0 && masteryData.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Trophy className="w-12 h-12 text-slate-600 mb-4" />
+              <p className="text-slate-400 text-lg">No hay maestría de campeones disponible</p>
+              <p className="text-slate-500 text-sm">Juega más partidas para desbloquear maestría</p>
+            </div>
+          )}
+
+          {filteredMastery.length === 0 && masteryData.length > 0 && (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Search className="w-12 h-12 text-slate-600 mb-4" />
               <p className="text-slate-400 text-lg">No se encontraron campeones</p>
