@@ -7,7 +7,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface Participant {
   user_id: string;
-  registered_at: string;
+  created_at: string;
   riot_account: {
     game_name: string;
     tag_line: string;
@@ -31,9 +31,9 @@ export function TournamentParticipants({ tournamentId }: TournamentParticipantsP
       // Primero obtenemos los registros
       const { data: registrations, error: registrationsError } = await supabase
         .from('tournament_registrations')
-        .select('user_id, registered_at')
+        .select('user_id, created_at')
         .eq('tournament_id', tournamentId)
-        .order('registered_at', { ascending: true });
+        .order('created_at', { ascending: true });
 
       if (registrationsError) throw registrationsError;
 

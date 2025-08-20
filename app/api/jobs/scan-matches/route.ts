@@ -19,17 +19,7 @@ export async function POST(request: NextRequest) {
     // Obtener todos los torneos activos
     const { data: activeTournaments, error: tournamentsError } = await supabase
       .from('tournaments')
-      .select(`
-        *,
-        tournament_registrations (
-          user_id,
-          registered_at,
-          riot_accounts (
-            puuid,
-            platform
-          )
-        )
-      `)
+      .select('*')
       .eq('status', 'active')
       .lt('start_at', new Date().toISOString())
       .gt('end_at', new Date().toISOString());
@@ -48,9 +38,39 @@ export async function POST(request: NextRequest) {
         .filter(([_, config]: [string, any]) => config.enabled)
         .map(([_, config]: [string, any]) => config.id);
 
-      for (const registration of tournament.tournament_registrations) {
-        const riotAccount = registration.riot_accounts?.[0];
-        if (!riotAccount?.puuid) continue;
+      // Obtener registraciones del torneo
+      const { data: registrations, error: registrationsError } = await supabase
+        .from('tournament_registrations')
+        .select('user_id, created_at')
+        .eq('tournament_id', tournament.id);
+
+      if (registrationsError) {
+        console.error(`Error obteniendo registraciones para torneo ${tournament.id}:`, registrationsError);
+        continue;
+      }
+
+      // Obtener cuentas de Riot para estos usuarios
+      if (registrations && registrations.length > 0) {
+        const { data: riotAccounts, error: riotError } = await supabase
+          .from('riot_accounts')
+          .select('user_id, puuid, platform')
+          .in('user_id', registrations.map(r => r.user_id))
+          .eq('verified', true);
+
+        if (riotError) {
+          console.error(`Error obteniendo cuentas de Riot para torneo ${tournament.id}:`, riotError);
+          continue;
+        }
+
+        // Combinar datos
+        const registrationsWithAccounts = registrations.map(registration => ({
+          ...registration,
+          riot_account: riotAccounts?.find(account => account.user_id === registration.user_id)
+        }));
+
+        for (const registration of registrationsWithAccounts) {
+          const riotAccount = registration.riot_account;
+          if (!riotAccount?.puuid) continue;
 
         try {
           // Obtener última partida procesada
@@ -71,7 +91,7 @@ export async function POST(request: NextRequest) {
           //   puuid: riotAccount.puuid,
           //   startTime: lastMatch 
           //     ? Math.floor(new Date(lastMatch.game_start).getTime() / 1000)
-          //     : Math.floor(new Date(registration.registered_at).getTime() / 1000),
+          //     : Math.floor(new Date(registration.created_at).getTime() / 1000),
           //   endTime: Math.floor(new Date(tournament.end_at).getTime() / 1000),
           //   count: 20,
           // });
@@ -109,7 +129,7 @@ export async function POST(request: NextRequest) {
 
             // Verificar si la partida está dentro del periodo del torneo
             const gameStartTime = new Date(matchData.info.gameStartTimestamp);
-            if (gameStartTime < new Date(registration.registered_at) || 
+            if (gameStartTime < new Date(registration.created_at) || 
                 gameStartTime > new Date(tournament.end_at)) {
               continue;
             }
