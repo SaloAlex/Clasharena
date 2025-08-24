@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { MatchHistory } from '@/components/MatchHistory';
 import { ChampionMastery } from '@/components/ChampionMastery';
 import { PlayerStats } from '@/components/PlayerStats';
+import { PlayerRankDisplay } from '@/components/PlayerRankDisplay';
 
 interface RiotAccount {
   game_name: string;
@@ -175,6 +176,17 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Rango del Jugador */}
+        {riotAccount?.verified && riotAccount.puuid && (
+          <div className="mb-6">
+            <PlayerRankDisplay 
+              puuid={riotAccount.puuid}
+              platform={riotAccount.platform}
+              summonerName={riotAccount.game_name}
+            />
+          </div>
+        )}
 
         {/* Maestría de Campeones */}
         {riotAccount?.verified && riotAccount.puuid && (

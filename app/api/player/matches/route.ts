@@ -37,12 +37,22 @@ async function processMatchData(matchData: any, puuid: string) {
     for (let i = 0; i <= 6; i++) {
       const itemId = player[`item${i}`];
       if (itemId && itemId !== 0 && itemId < 100000) { // Filtrar items válidos
-        const itemImage = await getItemImageUrl(itemId);
-        items.push({
-          name: `Item ${itemId}`,
-          image: itemImage,
-          gold: 0
-        });
+        try {
+          const itemImage = await getItemImageUrl(itemId);
+          items.push({
+            name: `Item ${itemId}`,
+            image: itemImage,
+            gold: 0
+          });
+        } catch (error) {
+          console.warn(`[processMatchData] Error obteniendo imagen para item ${itemId}:`, error);
+          // Incluir el item sin imagen para que el componente DataDragonImage maneje el fallback
+          items.push({
+            name: `Item ${itemId}`,
+            image: `https://ddragon.leagueoflegends.com/cdn/14.22.1/img/item/${itemId}.png`,
+            gold: 0
+          });
+        }
       }
     }
 

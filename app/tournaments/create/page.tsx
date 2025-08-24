@@ -15,6 +15,19 @@ import { Trophy, Calendar, Medal, Settings, Gamepad2, Gift, Scroll } from 'lucid
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
+// NUEVO: tipo para scoring que enviaremos al backend
+interface ScoringRules {
+  pointsForWin: number;
+  pointsForLoss: number;
+  firstBloodBonus: number;
+  firstTowerBonus: number;
+  perfectGameBonus: number;
+  bonusPerKill: number;         // NUEVO
+  bonusPerAssist: number;       // NUEVO
+  capPerMatch: number;          // NUEVO (0 = sin tope)
+  ignoreRemakesUnderSeconds: number; // NUEVO (ej: 300 = ignora < 5 min)
+}
+
 interface QueueConfig {
   enabled: boolean;
   pointMultiplier: number;
@@ -35,6 +48,10 @@ interface TournamentFormData {
   minRank: string;
   maxRank: string;
   maxGamesPerDay: number;
+  bonusPerKill: number;                // NUEVO
+  bonusPerAssist: number;              // NUEVO
+  capPerMatch: number;                 // NUEVO
+  ignoreRemakesUnderSeconds: number;   // NUEVO
   queues: {
     ranked_solo: QueueConfig;
     ranked_flex: QueueConfig;
@@ -69,6 +86,10 @@ export default function CreateTournamentPage() {
     minRank: 'NONE',
     maxRank: 'NONE',
     maxGamesPerDay: 0,
+    bonusPerKill: 0,                // NUEVO
+    bonusPerAssist: 0,              // NUEVO
+    capPerMatch: 0,                 // NUEVO (0 = sin tope)
+    ignoreRemakesUnderSeconds: 300, // NUEVO (recomendado 300s)
     queues: {
       ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
       ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
@@ -149,6 +170,17 @@ export default function CreateTournamentPage() {
       errors.maxGamesPerDay = 'El límite de partidas no puede ser negativo';
     }
 
+    // Validar nuevos campos de scoring
+    if (formData.capPerMatch < 0) {
+      errors.capPerMatch = 'El tope por partida no puede ser negativo';
+    }
+    if (formData.ignoreRemakesUnderSeconds < 0) {
+      errors.ignoreRemakesUnderSeconds = 'El mínimo de remake no puede ser negativo';
+    }
+    if (formData.bonusPerKill < 0 || formData.bonusPerAssist < 0) {
+      errors.bonus = 'Los bonus por kill/assist no pueden ser negativos';
+    }
+
     // Validar que al menos una cola esté habilitada
     const hasEnabledQueue = Object.values(formData.queues).some(queue => queue.enabled);
     if (!hasEnabledQueue) {
@@ -181,12 +213,50 @@ export default function CreateTournamentPage() {
 
     try {
       console.log('Sending form data:', formData);
+      
+      const enabledQueues = Object.values(formData.queues).filter(q => q.enabled);
+
+      // Array de queueId habilitados (p. ej. [420, 440] o [450] para ARAM)
+      const allowedQueueIds = enabledQueues.map(q => q.id);
+
+      // Mapa de multiplicadores por queueId, por si decides aplicarlo en el backend
+      const queueMultipliers = Object.values(formData.queues)
+        .reduce<Record<number, number>>((acc, q) => {
+          acc[q.id] = q.pointMultiplier;
+          return acc;
+        }, {});
+
+      // Objeto de scoring compacto para el backend
+      const scoring: ScoringRules = {
+        pointsForWin: formData.pointsPerWin,
+        pointsForLoss: formData.pointsPerLoss,
+        firstBloodBonus: formData.pointsFirstBlood,
+        firstTowerBonus: formData.pointsFirstTower,
+        perfectGameBonus: formData.pointsPerfectGame,
+        bonusPerKill: formData.bonusPerKill,
+        bonusPerAssist: formData.bonusPerAssist,
+        capPerMatch: formData.capPerMatch,
+        ignoreRemakesUnderSeconds: formData.ignoreRemakesUnderSeconds,
+      };
+
       const payload = {
-        ...formData,
-        start_at: formData.startDate.toISOString(),
-        end_at: formData.endDate.toISOString(),
-        // Asegurar que queues y prizes sean objetos
-        queues: formData.queues,
+        title: formData.title,
+        description: formData.description,
+        format: formData.format,
+        start_at: formData.startDate.getTime(), // ms epoch
+        end_at: formData.endDate.getTime(),     // ms epoch
+        rankRestriction: { min: formData.minRank, max: formData.maxRank },
+        maxGamesPerDay: formData.maxGamesPerDay,
+
+        // CLAVE PARA EL BACKEND:
+        allowedQueueIds,      // <- aquí el backend filtra por match.info.queueId
+        queueMultipliers,     // <- opcional: multiplicar puntos por cola
+
+        // Reglas de puntuación
+        scoring,
+
+        // Mantén lo que ya mandabas si tu API lo necesita
+        customRules: formData.customRules,
         prizes: formData.prizes,
       };
 
@@ -396,6 +466,12 @@ export default function CreateTournamentPage() {
                   </div>
                 );
               })}
+              
+              {/* Mensaje aclaratorio */}
+              <p className="text-xs text-slate-500 mt-4 p-3 bg-slate-700/30 rounded-lg">
+                Sólo se contabilizarán partidas cuya cola (queueId) coincida con las colas habilitadas del torneo.
+                Si el jugador juega en otro modo, esos puntos se ignorarán automáticamente.
+              </p>
             </CardContent>
           </Card>
 
@@ -463,6 +539,57 @@ export default function CreateTournamentPage() {
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bonificaciones y límites */}
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Medal className="w-5 h-5 text-blue-500" />
+                Bonificaciones y límites
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Ajusta bonus y restricciones por partida
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-white">Bonus por Kill</Label>
+                <Input
+                  type="number"
+                  value={formData.bonusPerKill}
+                  onChange={(e) => setFormData({ ...formData, bonusPerKill: parseFloat(e.target.value || '0') })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white">Bonus por Assist</Label>
+                <Input
+                  type="number"
+                  value={formData.bonusPerAssist}
+                  onChange={(e) => setFormData({ ...formData, bonusPerAssist: parseFloat(e.target.value || '0') })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white">Tope por Partida (0 = sin tope)</Label>
+                <Input
+                  type="number"
+                  value={formData.capPerMatch}
+                  onChange={(e) => setFormData({ ...formData, capPerMatch: parseInt(e.target.value || '0', 10) })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-white">Ignorar remakes &lt;= (segundos)</Label>
+                <Input
+                  type="number"
+                  value={formData.ignoreRemakesUnderSeconds}
+                  onChange={(e) => setFormData({ ...formData, ignoreRemakesUnderSeconds: parseInt(e.target.value || '0', 10) })}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
               </div>
             </CardContent>
           </Card>

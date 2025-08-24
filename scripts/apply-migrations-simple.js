@@ -43,11 +43,12 @@ async function applyMigrations() {
   } finally {
     await client.end();
   }
-}
 
+}
 // Ejecutar si se llama directamente
 if (require.main === module) {
   applyMigrations();
 }
 
 module.exports = { applyMigrations };
+

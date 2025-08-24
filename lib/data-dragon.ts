@@ -288,8 +288,34 @@ export async function getSpellImageUrl(spellKey: string): Promise<string> {
 
 // FUNCIÓN PARA OBTENER IMAGEN DE ITEM
 export async function getItemImageUrl(itemId: number): Promise<string> {
-  const version = await getStableDataDragonVersion();
-  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`;
+  try {
+    const version = await getStableDataDragonVersion();
+    const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/item/${itemId}.png`;
+    
+    // Verificar que la imagen existe antes de devolverla
+    const testResponse = await fetch(imageUrl, { method: 'HEAD' });
+    
+    if (testResponse.ok) {
+      return imageUrl;
+    }
+    
+    // Si falla, intentar con versión de fallback
+    for (const fallbackVersion of STABLE_VERSIONS) {
+      const fallbackUrl = `https://ddragon.leagueoflegends.com/cdn/${fallbackVersion}/img/item/${itemId}.png`;
+      const fallbackResponse = await fetch(fallbackUrl, { method: 'HEAD' });
+      
+      if (fallbackResponse.ok) {
+        return fallbackUrl;
+      }
+    }
+    
+    // Si no se encuentra en ninguna versión, usar imagen por defecto
+    return `https://ddragon.leagueoflegends.com/cdn/14.22.1/img/item/1001.png`; // Item por defecto
+    
+  } catch (error) {
+    console.warn(`[getItemImageUrl] Error obteniendo imagen para item ${itemId}:`, error);
+    return `https://ddragon.leagueoflegends.com/cdn/14.22.1/img/item/1001.png`; // Item por defecto
+  }
 }
 
 // FUNCIÓN PARA OBTENER IMAGEN DE RUNE

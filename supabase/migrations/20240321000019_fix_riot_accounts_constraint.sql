@@ -18,3 +18,6 @@ FROM pg_indexes
 WHERE tablename = 'riot_accounts';
 
 
+
+
+

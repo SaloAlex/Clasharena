@@ -215,12 +215,12 @@ export async function POST(request: NextRequest) {
             processedMatches++;
           }
           */
-
         } catch (error) {
           console.error(`Error procesando usuario ${registration.user_id}:`, error);
           continue;
         }
       }
+    }
     }
 
     return NextResponse.json({

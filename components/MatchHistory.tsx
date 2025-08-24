@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlayerStats } from '@/components/PlayerStats';
 import Image from 'next/image';
+import { DataDragonImage } from '@/components/ui/data-dragon-image';
 
 interface MatchItem {
   name: string;
@@ -337,12 +338,14 @@ export function MatchHistory({ puuid }: MatchHistoryProps) {
                           <div className="grid grid-cols-4 gap-1">
                             {match.build?.items?.map((item: MatchItem, index: number) => (
                               <div key={index} className="relative group">
-                                <Image 
+                                <DataDragonImage 
                                   src={item.image}
                                   alt={item.name}
                                   width={24}
                                   height={24}
                                   className="rounded-md"
+                                  type="item"
+                                  identifier={parseInt(item.name.replace('Item ', ''))}
                                 />
                                 <div className="absolute hidden group-hover:block z-10 -bottom-20 left-1/2 transform -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap">
                                   <p className="font-medium">{item.name}</p>
