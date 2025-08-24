@@ -5,9 +5,12 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Search, Star, Trophy } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Search, Star, Trophy, Crown, Target, Zap, Clock, AlertCircle } from 'lucide-react';
 import { formatDistance } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ChampionMasteryData {
   championId: number;
@@ -69,18 +72,22 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
     loadMasteryData();
   }, [loadMasteryData]);
 
-
-
-  const getMasteryColor = (level: number): string => {
+  const getMasteryGradient = (level: number): string => {
     switch (level) {
-      case 7: return 'text-purple-400';
-      case 6: return 'text-pink-400';
-      case 5: return 'text-red-400';
-      case 4: return 'text-orange-400';
-      case 3: return 'text-blue-400';
-      case 2: return 'text-green-400';
-      default: return 'text-slate-400';
+      case 7: return 'from-purple-500 to-purple-600';
+      case 6: return 'from-pink-500 to-pink-600';
+      case 5: return 'from-red-500 to-red-600';
+      case 4: return 'from-orange-500 to-orange-600';
+      case 3: return 'from-blue-500 to-blue-600';
+      case 2: return 'from-green-500 to-green-600';
+      default: return 'from-slate-500 to-slate-600';
     }
+  };
+
+  const getMasteryIcon = (level: number) => {
+    if (level >= 7) return <Crown className="w-4 h-4" />;
+    if (level >= 5) return <Star className="w-4 h-4" />;
+    return <Target className="w-4 h-4" />;
   };
 
   const formatPoints = (points: number): string => {
@@ -100,13 +107,25 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
 
   if (isLoading) {
     return (
-      <Card className="border-slate-700 bg-slate-800/50 mt-6">
-        <CardHeader>
-          <CardTitle className="text-white">Maestría de Campeones</CardTitle>
+      <Card className="border-0 shadow-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+              <Trophy className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-slate-900 dark:text-white text-xl">Maestría de Campeones</CardTitle>
+              <CardTitle className="text-slate-600 dark:text-slate-400 text-sm font-normal">
+                Progreso y estadísticas
+              </CardTitle>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-20 w-full rounded-xl" />
           </div>
         </CardContent>
       </Card>
@@ -115,40 +134,60 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
 
   if (error) {
     return (
-      <Card className="border-slate-700 bg-slate-800/50 mt-6">
-        <CardHeader>
-          <CardTitle className="text-white">Maestría de Campeones</CardTitle>
+      <Card className="border-0 shadow-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+              <Trophy className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-slate-900 dark:text-white text-xl">Maestría de Campeones</CardTitle>
+              <CardTitle className="text-slate-600 dark:text-slate-400 text-sm font-normal">
+                Progreso y estadísticas
+              </CardTitle>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="text-red-400 text-center">{error}</div>
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+          </div>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-slate-700 bg-slate-800/50 mt-6">
-      <CardHeader className="border-b border-slate-700/50">
+    <Card className="border-0 shadow-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm">
+      <CardHeader className="pb-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              Maestría de Campeones
-            </CardTitle>
-            <p className="text-sm text-slate-400 mt-1">
-              {filteredMastery.length} campeones con maestría
-              {masteryData.some(m => m.isEstimated) && (
-                <span className="text-yellow-400 ml-2">
-                  ⚠️ Algunos datos son estimados
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+              <Trophy className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-slate-900 dark:text-white text-xl">Maestría de Campeones</CardTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-slate-600 dark:text-slate-400 text-sm">
+                  {filteredMastery.length} campeones
                 </span>
-              )}
-            </p>
+                {masteryData.some(m => m.isEstimated) && (
+                  <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Datos estimados
+                  </Badge>
+                )}
+              </div>
+            </div>
           </div>
           <div className="relative w-full md:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Buscar campeón..."
-              className="pl-8 bg-slate-800 border-slate-700 text-white w-full"
+              className="pl-10 bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -157,126 +196,114 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
       </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[500px]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
             {filteredMastery.map((mastery) => (
               <div
                 key={mastery.championId}
-                className="relative group rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+                className="group relative bg-white dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500 transition-all duration-300 hover:shadow-lg overflow-hidden"
               >
-                {/* Fondo del campeón (versión desenfocada) */}
+                {/* Fondo con gradiente sutil */}
                 <div 
-                  className="absolute inset-0 bg-cover bg-center opacity-10 group-hover:opacity-20 transition-opacity"
-                  style={{ 
-                    backgroundImage: `url(${mastery.championInfo.image})`,
-                    filter: 'blur(4px)'
-                  }}
+                  className="absolute inset-0 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-700/30 dark:to-blue-900/10 opacity-0 group-hover:opacity-100 transition-opacity"
                 />
 
                 <div className="relative p-4">
-                  {/* Encabezado con imagen y nombre */}
-                  <div className="flex items-start gap-3">
+                  {/* Header con imagen y nivel */}
+                  <div className="flex items-start gap-3 mb-3">
                     <div className="relative">
                       <Image
                         src={mastery.championInfo.image}
                         alt={mastery.championInfo.name}
-                        width={64}
-                        height={64}
-                        className="rounded-lg border-2 border-slate-600 group-hover:border-slate-500 transition-colors"
+                        width={56}
+                        height={56}
+                        className="rounded-lg border-2 border-slate-200 dark:border-slate-600 group-hover:border-slate-300 dark:group-hover:border-slate-500 transition-colors"
                       />
                       <div 
-                        className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-lg bg-slate-800 
-                          flex items-center justify-center font-bold ${getMasteryColor(mastery.championLevel)}
-                          border-2 border-slate-700 ${mastery.isEstimated ? 'border-yellow-400' : ''}`}
+                        className={`absolute -bottom-2 -right-2 w-7 h-7 rounded-lg bg-gradient-to-r ${getMasteryGradient(mastery.championLevel)}
+                          flex items-center justify-center font-bold text-white text-sm border-2 border-white dark:border-slate-800 shadow-lg`}
                       >
-                        {mastery.championLevel}
+                        {getMasteryIcon(mastery.championLevel)}
                       </div>
                       {mastery.isEstimated && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center">
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg">
                           <span className="text-xs text-black font-bold">~</span>
                         </div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-white text-lg leading-tight">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-lg leading-tight truncate">
                         {mastery.championInfo.name}
                       </h3>
-                      <p className="text-sm text-slate-400 line-clamp-1">
+                      <p className="text-slate-600 dark:text-slate-400 text-sm truncate">
                         {mastery.championInfo.title}
                       </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className={`bg-gradient-to-r ${getMasteryGradient(mastery.championLevel)} text-white border-0 text-xs`}>
+                          Nivel {mastery.championLevel}
+                        </Badge>
+                        {mastery.chestGranted && (
+                          <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800 text-xs">
+                            Cofre
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Estadísticas */}
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-slate-400">Puntos totales</p>
-                      <p className="text-lg font-bold text-white">
+                  {/* Puntos de maestría */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">Puntos</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
                         {formatPoints(mastery.championPoints)}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-sm text-slate-400">Última partida</p>
-                      <p className="text-sm text-white">
-                        {formatDistance(new Date(mastery.lastPlayTime), new Date(), {
-                          addSuffix: true,
-                          locale: es
-                        }).replace('dentro de', 'hace')}
-                      </p>
-                    </div>
+                    <Progress 
+                      value={Math.min((mastery.championPoints / 1000000) * 100, 100)} 
+                      className="h-2 bg-slate-200 dark:bg-slate-600"
+                    />
                   </div>
 
-                  {/* Estadísticas adicionales para datos estimados */}
-                  {mastery.isEstimated && mastery.gamesPlayed && (
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div className="text-center">
-                        <p className="text-slate-400">Partidas</p>
-                        <p className="text-white font-semibold">{mastery.gamesPlayed}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-400">Win Rate</p>
-                        <p className="text-white font-semibold">{(mastery.winRate! * 100).toFixed(0)}%</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-slate-400">KDA</p>
-                        <p className="text-white font-semibold">{mastery.averageKda?.toFixed(1)}</p>
+                  {/* Estadísticas adicionales si están disponibles */}
+                  {(mastery.gamesPlayed || mastery.winRate) && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {mastery.gamesPlayed && (
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-400">Partidas:</span>
+                            <span className="ml-1 font-semibold text-slate-900 dark:text-white">
+                              {mastery.gamesPlayed}
+                            </span>
+                          </div>
+                        )}
+                        {mastery.winRate && (
+                          <div>
+                            <span className="text-slate-500 dark:text-slate-400">Win Rate:</span>
+                            <span className="ml-1 font-semibold text-slate-900 dark:text-white">
+                              {mastery.winRate}%
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
 
-                  {/* Tokens y Cofre */}
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: mastery.tokensEarned || 0 }).map((_, i) => (
-                        <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                      ))}
-                      {Array.from({ length: 3 - (mastery.tokensEarned || 0) }).map((_, i) => (
-                        <Star key={i} className="w-5 h-5 text-slate-600" />
-                      ))}
-                    </div>
-                    <div className={`text-sm ${mastery.chestGranted ? 'text-slate-400' : 'text-green-400'}`}>
-                      {mastery.chestGranted ? '✓ Cofre obtenido' : '⭐ Cofre disponible'}
+                  {/* Última partida */}
+                  <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-600">
+                    <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                      <Clock className="w-3 h-3" />
+                      <span>
+                        {formatDistance(mastery.lastPlayTime, new Date(), { 
+                          addSuffix: true, 
+                          locale: es 
+                        })}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-
-          {filteredMastery.length === 0 && masteryData.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Trophy className="w-12 h-12 text-slate-600 mb-4" />
-              <p className="text-slate-400 text-lg">No hay maestría de campeones disponible</p>
-              <p className="text-slate-500 text-sm">Juega más partidas para desbloquear maestría</p>
-            </div>
-          )}
-
-          {filteredMastery.length === 0 && masteryData.length > 0 && (
-            <div className="flex flex-col items-center justify-center py-12 px-4">
-              <Search className="w-12 h-12 text-slate-600 mb-4" />
-              <p className="text-slate-400 text-lg">No se encontraron campeones</p>
-              <p className="text-slate-500 text-sm">Intenta con otro término de búsqueda</p>
-            </div>
-          )}
         </ScrollArea>
       </CardContent>
     </Card>
