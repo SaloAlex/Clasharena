@@ -92,6 +92,24 @@ export function TournamentDetails({
   const [isDeleting, setIsDeleting] = useState(false);
   const supabase = createClientComponentClient();
   const [userRegistration, setUserRegistration] = useState<TournamentRegistration | null>(initialUserRegistration);
+  
+  // Auto-recuperación de usuario si llega null
+  const [sessionUser, setSessionUser] = useState<User | null>(currentUser);
+
+  useEffect(() => {
+    if (!sessionUser) {
+      supabase.auth.getUser().then(({ data }) => setSessionUser(data.user ?? null));
+    }
+  }, [sessionUser, supabase]);
+
+  // Lógica de ownership mejorada
+  const adminEmail = 'dvdsalomon6@gmail.com';
+  const userForCheck = sessionUser || currentUser;
+  
+  const isOwner = !!userForCheck && 
+    (userForCheck.id === tournament.creator_id || userForCheck.email === adminEmail);
+
+
 
   const handleDelete = async () => {
     if (isDeleting) return;
@@ -295,7 +313,10 @@ export function TournamentDetails({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {currentUser && currentUser.id === tournament.creator_id && (
+
+
+
+              {isOwner && (
                 <>
                   <Button
                     variant="outline"
