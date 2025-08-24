@@ -31,6 +31,8 @@ interface LeaderboardEntry {
   last_match_at: string | null;
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -53,74 +55,99 @@ export async function GET(
       );
     }
 
-    // Obtener registros del torneo
+    // Obtener registraciones del torneo
     const { data: registrations, error: registrationsError } = await supabase
       .from('tournament_registrations')
-      .select('user_id')
+      .select(`
+        user_id,
+        summoner_name,
+        total_points,
+        total_matches,
+        match_records(
+          win,
+          kills,
+          deaths,
+          assists,
+          game_start
+        )
+      `)
       .eq('tournament_id', tournamentId);
 
     if (registrationsError) {
+      console.error('Error obteniendo registraciones:', registrationsError);
       return NextResponse.json(
-        { error: 'Error al obtener registros' },
+        { error: 'Error al obtener registraciones' },
         { status: 500 }
       );
     }
 
-    // Obtener cuentas de Riot de los usuarios registrados
+    // Obtener cuentas de Riot por separado
+    const userIds = registrations?.map(r => r.user_id) || [];
     const { data: riotAccounts, error: riotError } = await supabase
       .from('riot_accounts')
-      .select('user_id, game_name, tag_line, platform')
-      .in('user_id', registrations.map(r => r.user_id))
+      .select('user_id, platform')
+      .in('user_id', userIds)
       .eq('verified', true);
 
     if (riotError) {
+      console.error('Error obteniendo cuentas de Riot:', riotError);
       return NextResponse.json(
         { error: 'Error al obtener cuentas de Riot' },
         { status: 500 }
       );
     }
 
-    // Obtener puntos y estadísticas (si existen)
-    const { data: points } = await supabase
-      .from('tournament_points')
-      .select('*')
-      .eq('tournament_id', tournamentId);
-
-    // Si no hay puntos, usamos un array vacío
-    const tournamentPoints = points || [];
-
-    // Procesar y combinar los datos
-    const leaderboard: LeaderboardEntry[] = registrations.map((registration: any) => {
-      const userPoints = tournamentPoints.filter(p => p.user_id === registration.user_id);
-      const riotAccount = riotAccounts?.find(account => account.user_id === registration.user_id);
+    // Procesar los datos para el formato esperado
+    const leaderboard: LeaderboardEntry[] = (registrations || []).map((registration: any) => {
+      const matches = registration.match_records || [];
+      const wins = matches.filter((m: any) => m.win).length;
+      const losses = matches.filter((m: any) => !m.win).length;
       
+      // Calcular KDA promedio
+      const totalKills = matches.reduce((sum: number, m: any) => sum + (m.kills || 0), 0);
+      const totalDeaths = matches.reduce((sum: number, m: any) => sum + (m.deaths || 0), 0);
+      const totalAssists = matches.reduce((sum: number, m: any) => sum + (m.assists || 0), 0);
+      
+      const avgKda = totalDeaths > 0 
+        ? (totalKills + totalAssists) / totalDeaths 
+        : totalKills + totalAssists;
+
+      // Obtener fecha de la última partida
+      const lastMatch = matches.length > 0 
+        ? matches.sort((a: any, b: any) => 
+            new Date(b.game_start).getTime() - new Date(a.game_start).getTime()
+          )[0]
+        : null;
+
+      // Buscar la cuenta de Riot correspondiente
+      const riotAccount = riotAccounts?.find(account => account.user_id === registration.user_id);
+
       return {
         user_id: registration.user_id,
-        display_name: null, // Ya no usamos display_name
-        summoner_name: riotAccount?.game_name || null,
+        display_name: null,
+        summoner_name: registration.summoner_name,
         region: riotAccount?.platform || null,
-        matches_played: userPoints.length,
-        total_points: userPoints.reduce((sum, p) => sum + (p.points || 0), 0),
-        wins: userPoints.filter(p => p.reasons?.includes('victoria')).length,
-        losses: userPoints.filter(p => p.reasons?.includes('derrota')).length,
-        avg_kda: userPoints.reduce((sum, p) => sum + (p.kda || 0), 0) / (userPoints.length || 1),
-        last_match_at: userPoints.length > 0 
-          ? userPoints.sort((a, b) => 
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            )[0].created_at 
-          : null
+        matches_played: registration.total_matches || 0,
+        total_points: registration.total_points || 0,
+        wins,
+        losses,
+        avg_kda: avgKda,
+        last_match_at: lastMatch?.game_start || null
       };
     });
 
-    // Ordenar por puntos totales
+    // Ordenar por puntos totales (descendente)
     leaderboard.sort((a, b) => b.total_points - a.total_points);
 
     return NextResponse.json({
       success: true,
       leaderboard
+    }, {
+      headers: { 'Cache-Control': 'no-store' }
     });
 
   } catch (error: any) {
+    console.error('Error en leaderboard:', error);
     return NextResponse.json(
       { error: 'Error al obtener el leaderboard' },
       { status: 500 }

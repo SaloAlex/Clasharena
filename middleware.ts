@@ -9,15 +9,12 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Proteger rutas que requieren autenticación
-  const protectedPaths = ['/tournaments', '/profile', '/t/']
+  // Solo proteger rutas específicas que realmente necesitan autenticación
   const adminPaths = ['/tournaments/create']
-  
-  const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
   const isAdminPath = adminPaths.some(path => request.nextUrl.pathname.startsWith(path))
   const isAuthPage = request.nextUrl.pathname === '/auth'
 
-  // Verificar rutas de admin
+  // Solo verificar rutas de admin (crear torneos)
   if (isAdminPath) {
     if (!session) {
       return NextResponse.redirect(new URL('/auth', request.url))
@@ -25,13 +22,6 @@ export async function middleware(request: NextRequest) {
     if (session.user.email !== 'dvdsalomon6@gmail.com') {
       return NextResponse.redirect(new URL('/tournaments', request.url))
     }
-  }
-
-  // Verificar rutas protegidas normales
-  if (isProtectedPath && !session) {
-    const redirectUrl = new URL('/auth', request.url)
-    redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
   }
 
   // Si el usuario está autenticado y trata de acceder a /auth, redirigir a /tournaments
@@ -49,8 +39,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - api routes (to avoid interfering with API calls)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api).*)',
   ],
 }

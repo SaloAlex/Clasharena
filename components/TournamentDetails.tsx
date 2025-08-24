@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
-import { Trophy, Calendar, Users, Target, Clock, Star, UserPlus, ArrowLeft, Edit, Trash2, Gamepad2, Award, Zap, Shield, Crown, Users2, Timer, TrendingUp, BarChart3 } from 'lucide-react';
+import { Trophy, Calendar, Users, Target, Clock, Star, UserPlus, ArrowLeft, Edit, Trash2, Gamepad2, Award, Zap, Shield, Crown, Users2, Timer, TrendingUp, BarChart3, Medal, Settings, Play, CheckCircle, XCircle } from 'lucide-react';
 import { TournamentParticipants } from '@/components/TournamentParticipants';
 import { TournamentLeaderboard } from '@/components/TournamentLeaderboard';
 import { formatDistance } from 'date-fns';
@@ -62,6 +62,13 @@ interface TournamentRegistration {
   id: string;
   tournament_id: string;
   user_id: string;
+  summoner_name: string;
+  summoner_id?: string;
+  region: string;
+  current_rank?: string;
+  total_points: number;
+  total_matches: number;
+  status: string;
   created_at: string;
 }
 
@@ -81,6 +88,24 @@ interface TournamentDetailsProps {
   currentUser: User | null;
 }
 
+interface MatchRecord {
+  id: string;
+  match_id: string;
+  queue_type: string;
+  game_start: string;
+  duration: number;
+  win: boolean;
+  kills: number;
+  deaths: number;
+  assists: number;
+  champion_id: number;
+  points_earned: number;
+  points_breakdown: {
+    reasons: string[];
+    multiplier: number;
+  };
+}
+
 export function TournamentDetails({ 
   tournament, 
   userRegistration: initialUserRegistration, 
@@ -90,6 +115,7 @@ export function TournamentDetails({
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userMatches, setUserMatches] = useState<MatchRecord[]>([]);
   const supabase = createClientComponentClient();
   const [userRegistration, setUserRegistration] = useState<TournamentRegistration | null>(initialUserRegistration);
   
@@ -136,8 +162,8 @@ export function TournamentDetails({
   const startDate = tournament.start_at ? new Date(tournament.start_at) : now;
   const endDate = tournament.end_at ? new Date(tournament.end_at) : now;
   
-  // Formatear la duración en español
-  const formatDuration = () => {
+  // Formatear la duración del torneo en español
+  const formatTournamentDuration = () => {
     const hours = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
     if (hours === 24) return '24 horas';
     if (hours < 24) return `${hours} horas`;
@@ -320,6 +346,66 @@ export function TournamentDetails({
     }
   };
 
+  // Función para cargar las partidas del usuario
+  const loadUserMatches = useCallback(async () => {
+    if (!userRegistration) return;
+
+    try {
+      const response = await fetch(`/api/tournaments/${tournament.id}/matches?registration_id=${userRegistration.id}`, {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserMatches(data.matches || []);
+      }
+    } catch (error) {
+      console.error('Error cargando partidas:', error);
+    }
+  }, [tournament.id, userRegistration]);
+
+  useEffect(() => {
+    if (userRegistration) {
+      loadUserMatches();
+    }
+  }, [userRegistration, loadUserMatches]);
+
+  const getQueueTypeName = (queueType: string) => {
+    const queueNames: Record<string, string> = {
+      'ranked_solo': 'SoloQ',
+      'ranked_flex': 'Flex',
+      'normal_draft': 'Normal Draft',
+      'normal_blind': 'Normal Blind',
+      'aram': 'ARAM',
+      'clash': 'Clash',
+      'urf': 'URF',
+      'one_for_all': 'One for All',
+      'nexus_blitz': 'Nexus Blitz',
+      'ultimate_spellbook': 'Ultimate Spellbook',
+      'arena': 'Arena',
+      'tutorial': 'Tutorial',
+      'unknown': 'Desconocido'
+    };
+    return queueNames[queueType] || queueType;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const getReasonsText = (reasons: string[]) => {
+    const reasonNames: Record<string, string> = {
+      'victoria': 'Victoria',
+      'derrota': 'Derrota',
+      'primera_sangre': 'Primera Sangre',
+      'primera_torre': 'Primera Torre',
+      'partida_perfecta': 'Partida Perfecta'
+    };
+    return reasons.map(reason => reasonNames[reason] || reason).join(', ');
+  };
+
   return (
     <div className="space-y-8">
       {/* Back Navigation */}
@@ -443,7 +529,7 @@ export function TournamentDetails({
                   <p className="text-sm text-slate-400">Duración</p>
                   <p className="font-semibold text-white">
                     {!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) 
-                      ? formatDuration()
+                      ? formatTournamentDuration()
                       : 'No disponible'}
                   </p>
                 </div>
@@ -544,6 +630,96 @@ export function TournamentDetails({
           <TournamentParticipants tournamentId={tournament.id} />
         </CardContent>
       </Card>
+
+      {/* Sección de Partidas del Usuario */}
+      {userRegistration && (
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <Play className="h-5 w-5" />
+              Mis Partidas en el Torneo
+            </CardTitle>
+            <CardDescription>
+              Partidas procesadas y puntos acumulados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{userRegistration.total_points}</div>
+                <div className="text-sm text-gray-600">Puntos Totales</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{userRegistration.total_matches}</div>
+                <div className="text-sm text-gray-600">Partidas Jugadas</div>
+              </div>
+              <div className="bg-white rounded-lg p-4 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {userRegistration.total_matches > 0 
+                    ? Math.round(userRegistration.total_points / userRegistration.total_matches) 
+                    : 0}
+                </div>
+                <div className="text-sm text-gray-600">Promedio por Partida</div>
+              </div>
+            </div>
+
+            {userMatches.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-700">Historial de Partidas</h4>
+                {userMatches.map((match) => (
+                  <div key={match.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {match.win ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        )}
+                        <div>
+                          <div className="font-medium">
+                            {getQueueTypeName(match.queue_type)}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(match.game_start).toLocaleDateString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })} • {formatDuration(match.duration)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-lg">
+                          +{match.points_earned} pts
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {getReasonsText(match.points_breakdown.reasons)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
+                      <span>KDA: {match.kills}/{match.deaths}/{match.assists}</span>
+                      <span>Campeón: {match.champion_id}</span>
+                      {match.points_breakdown.multiplier !== 1 && (
+                        <Badge variant="secondary" className="text-xs">
+                          x{match.points_breakdown.multiplier}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Gamepad2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>No hay partidas procesadas aún</p>
+                <p className="text-sm">Las partidas se procesan automáticamente cada cierto tiempo</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Enhanced Tournament Rules */}

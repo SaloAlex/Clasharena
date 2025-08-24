@@ -103,8 +103,7 @@ export async function POST(req: Request) {
       max_rank: String(body.rankRestriction?.max ?? body.maxRank ?? 'NONE'),
       max_games_per_day: toInt(body.maxGamesPerDay, 0),
       queues: queues,
-      prizes: parseJSON(body.prizes, { first: '', second: '', third: '' }),
-      custom_rules: String(body.customRules ?? '').trim()
+      prizes: parseJSON(body.prizes, { first: '', second: '', third: '' })
     };
 
     // Validaciones básicas

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Medal, RefreshCw } from 'lucide-react';
@@ -33,12 +33,7 @@ export function TournamentLeaderboard({ tournamentId, showCompleteButton = true 
   const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClientComponentClient();
 
-  useEffect(() => {
-    loadLeaderboard();
-    checkAdminStatus();
-  }, [tournamentId]);
-
-  const checkAdminStatus = async () => {
+  const checkAdminStatus = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -54,9 +49,9 @@ export function TournamentLeaderboard({ tournamentId, showCompleteButton = true 
     } catch (error) {
       console.error('Error checking admin status:', error);
     }
-  };
+  }, [tournamentId, supabase]);
 
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`/api/tournaments/${tournamentId}/leaderboard`);
@@ -72,7 +67,12 @@ export function TournamentLeaderboard({ tournamentId, showCompleteButton = true 
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [tournamentId]);
+
+  useEffect(() => {
+    loadLeaderboard();
+    checkAdminStatus();
+  }, [loadLeaderboard, checkAdminStatus]);
 
   const handleRefresh = async () => {
     try {
