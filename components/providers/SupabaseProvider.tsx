@@ -33,16 +33,14 @@ export default function SupabaseProvider({
       // Solo manejar eventos después de la inicialización
       if (!isInitialized) return;
 
-      if (event === 'SIGNED_IN') {
-        // Refrescar la página cuando el usuario se conecta
-        router.refresh();
-      } else if (event === 'SIGNED_OUT') {
-        // Solo redirigir si estamos en una página protegida
+      // Solo manejar SIGNED_OUT real, ignorar otros eventos
+      if (event === 'SIGNED_OUT') {
         const currentPath = window.location.pathname;
         const protectedPaths = ['/profile', '/tournaments', '/t/'];
         const isOnProtectedPath = protectedPaths.some(path => currentPath.startsWith(path));
         
         if (isOnProtectedPath) {
+          console.log('User signed out, redirecting to auth');
           router.replace('/auth');
         }
       }
@@ -52,6 +50,15 @@ export default function SupabaseProvider({
       subscription.unsubscribe();
     };
   }, [router, supabase, isInitialized]);
+
+  // No renderizar hasta que esté inicializado
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return children;
 }

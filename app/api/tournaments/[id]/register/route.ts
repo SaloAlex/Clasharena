@@ -36,8 +36,8 @@ export async function POST(
 
     // Verificar que el torneo acepta registros
     const now = new Date();
-    const startDate = new Date(tournament.start_date);
-    const endDate = new Date(tournament.end_date);
+    const startDate = new Date(tournament.start_at);
+    const endDate = new Date(tournament.end_at);
     
     if (tournament.status === 'finished' || tournament.status === 'cancelled') {
       return NextResponse.json(
@@ -58,12 +58,21 @@ export async function POST(
       .from('riot_accounts')
       .select('*')
       .eq('user_id', session.user.id)
-      .eq('verified', true)
       .single();
+
+
 
     if (riotError || !riotAccount) {
       return NextResponse.json(
-        { error: 'Necesitas vincular y verificar tu cuenta de Riot primero' },
+        { error: 'Necesitas vincular tu cuenta de Riot primero' },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que la cuenta esté verificada
+    if (!riotAccount.verified) {
+      return NextResponse.json(
+        { error: 'Necesitas verificar tu cuenta de Riot primero' },
         { status: 400 }
       );
     }
@@ -85,13 +94,19 @@ export async function POST(
       );
     }
 
-    // Crear el registro
+    // Crear el registro usando la estructura correcta de la tabla
     const { data: registration, error: createError } = await supabase
       .from('tournament_registrations')
       .insert({
         tournament_id: tournamentId,
         user_id: session.user.id,
-        riot_account_id: riotAccount.id
+        summoner_name: riotAccount.game_name,
+        summoner_id: riotAccount.summoner_id,
+        region: riotAccount.platform,
+        current_rank: null, // Se actualizará después
+        total_points: 0,
+        total_matches: 0,
+        status: 'active'
       })
       .select()
       .single();
@@ -103,22 +118,6 @@ export async function POST(
         { status: 500 }
       );
     }
-
-    // Registrar en el historial de actividad
-    await supabase
-      .from('tournament_activity')
-      .insert({
-        tournament_id: tournamentId,
-        user_id: session.user.id,
-        action: 'REGISTERED',
-        details: {
-          riot_account: {
-            game_name: riotAccount.game_name,
-            tag_line: riotAccount.tag_line,
-            platform: riotAccount.platform
-          }
-        }
-      });
 
     return NextResponse.json({
       success: true,
