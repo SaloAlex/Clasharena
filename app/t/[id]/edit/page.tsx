@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,8 @@ export default function EditTournamentPage() {
   const params = useParams();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [tournamentStarted, setTournamentStarted] = useState(false);
+  const [warningShown, setWarningShown] = useState(false);
   const [formData, setFormData] = useState<TournamentFormData>({
     title: '',
     description: '',
@@ -51,15 +53,8 @@ export default function EditTournamentPage() {
     maxGamesPerDay: 0
   });
 
-  useEffect(() => {
-    if (!user) return;
-    loadTournament();
-  }, [params.id, user]);
-
-  const loadTournament = async () => {
+  const loadTournament = useCallback(async () => {
     try {
-      console.log('Current user:', user);
-      
       const { data: tournament, error } = await supabase
         .from('tournaments')
         .select('*')
@@ -69,13 +64,13 @@ export default function EditTournamentPage() {
       if (error) throw error;
       if (!tournament) throw new Error('Torneo no encontrado');
 
-      console.log('Tournament:', tournament);
-      console.log('Creator ID:', tournament.creator_id);
-      console.log('User ID:', user?.id);
+      // Lógica de ownership mejorada (igual que en TournamentDetails)
+      const adminEmail = 'dvdsalomon6@gmail.com';
+      const isOwner = !!user && 
+        (user.id === tournament.creator_id || user.email === adminEmail);
 
-      // Verificar que el usuario sea el creador
-      if (!user || tournament.creator_id !== user.id) {
-        console.log('Permission denied - IDs do not match');
+      // Verificar que el usuario sea el creador o admin
+      if (!isOwner) {
         toast.error('No tienes permiso para editar este torneo');
         router.push('/tournaments');
         return;
@@ -83,12 +78,16 @@ export default function EditTournamentPage() {
 
       // Verificar si el torneo ya comenzó
       const now = new Date();
-      const tournamentStart = new Date(tournament.start_date);
-      const tournamentEnd = new Date(tournament.end_date);
+      const tournamentStart = new Date(tournament.start_at);
+      const tournamentEnd = new Date(tournament.end_at);
 
-      // Si el torneo ya comenzó, no permitir cambiar la fecha de inicio
+      // Si el torneo ya comenzó, mostrar advertencia y marcar como iniciado
       if (tournamentStart < now) {
-        toast.warning('El torneo ya comenzó. No se puede modificar la fecha de inicio.');
+        setTournamentStarted(true);
+        if (!warningShown) {
+          toast.warning('Este torneo ya comenzó. Solo se pueden editar configuraciones básicas.');
+          setWarningShown(true);
+        }
       }
 
       setFormData({
@@ -97,14 +96,14 @@ export default function EditTournamentPage() {
         format: tournament.format as any,
         startDate: tournamentStart,
         endDate: tournamentEnd,
-        pointsPerWin: tournament.points_per_win,
-        pointsPerLoss: tournament.points_per_loss,
-        pointsFirstBlood: tournament.points_first_blood,
-        pointsFirstTower: tournament.points_first_tower,
-        pointsPerfectGame: tournament.points_perfect_game,
-        minRank: tournament.min_rank,
-        maxRank: tournament.max_rank,
-        maxGamesPerDay: tournament.max_games_per_day
+        pointsPerWin: tournament.points_per_win ?? 100,
+        pointsPerLoss: tournament.points_per_loss ?? 0,
+        pointsFirstBlood: tournament.points_first_blood ?? 10,
+        pointsFirstTower: tournament.points_first_tower ?? 20,
+        pointsPerfectGame: tournament.points_perfect_game ?? 50,
+        minRank: tournament.min_rank ?? 'NONE',
+        maxRank: tournament.max_rank ?? 'NONE',
+        maxGamesPerDay: tournament.max_games_per_day ?? 0
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -112,49 +111,53 @@ export default function EditTournamentPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.id, user, router, warningShown]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadTournament();
+  }, [loadTournament, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validar fechas
-    const now = new Date();
-    const originalStartDate = new Date(formData.startDate);
-    
-    // Si el torneo ya comenzó, no permitir cambiar la fecha de inicio a una fecha futura
-    if (originalStartDate < now && formData.startDate > originalStartDate) {
-      toast.error('No se puede modificar la fecha de inicio de un torneo que ya comenzó');
-      return;
-    }
-
-    // Validar que la fecha de fin sea posterior a la de inicio
-    if (formData.endDate <= formData.startDate) {
-      toast.error('La fecha de fin debe ser posterior a la fecha de inicio');
-      return;
+    // Validar fechas solo si el torneo no ha comenzado
+    if (!tournamentStarted) {
+      // Validar que la fecha de fin sea posterior a la de inicio
+      if (formData.endDate <= formData.startDate) {
+        toast.error('La fecha de fin debe ser posterior a la fecha de inicio');
+        return;
+      }
     }
 
     setIsLoading(true);
 
     try {
+      // Preparar los datos a actualizar
+      const updateData: any = {
+        title: formData.title,
+        description: formData.description,
+        format: formData.format,
+        points_per_win: formData.pointsPerWin,
+        points_per_loss: formData.pointsPerLoss,
+        points_first_blood: formData.pointsFirstBlood,
+        points_first_tower: formData.pointsFirstTower,
+        points_perfect_game: formData.pointsPerfectGame,
+        min_rank: formData.minRank,
+        max_rank: formData.maxRank,
+        max_games_per_day: formData.maxGamesPerDay
+      };
+
+      // Solo incluir fechas si el torneo no ha comenzado
+      if (!tournamentStarted) {
+        updateData.start_at = formData.startDate.toISOString();
+        updateData.end_at = formData.endDate.toISOString();
+      }
+
       const { error } = await supabase
         .from('tournaments')
-        .update({
-          title: formData.title,
-          description: formData.description,
-          format: formData.format,
-          start_date: formData.startDate.toISOString(),
-          end_date: formData.endDate.toISOString(),
-          points_per_win: formData.pointsPerWin,
-          points_per_loss: formData.pointsPerLoss,
-          points_first_blood: formData.pointsFirstBlood,
-          points_first_tower: formData.pointsFirstTower,
-          points_perfect_game: formData.pointsPerfectGame,
-          min_rank: formData.minRank,
-          max_rank: formData.maxRank,
-          max_games_per_day: formData.maxGamesPerDay
-        })
-        .eq('id', params.id)
-        .eq('creator_id', user?.id);
+        .update(updateData)
+        .eq('id', params.id);
 
       if (error) throw error;
 
@@ -262,20 +265,32 @@ export default function EditTournamentPage() {
               <CardDescription className="text-slate-400">Define cuándo comienza y termina el torneo</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {tournamentStarted && (
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                  <p className="text-yellow-400 text-sm">
+                    ⚠️ Este torneo ya comenzó. Las fechas no se pueden modificar.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-white">Fecha de Inicio</Label>
+                <div className={`space-y-2 ${tournamentStarted ? 'opacity-50' : ''}`}>
+                  <Label htmlFor="startDate" className="text-white">
+                    Fecha de Inicio
+                    {tournamentStarted && <span className="text-yellow-400 ml-1">(No editable)</span>}
+                  </Label>
                   <DateTimePicker
                     value={formData.startDate}
-                    onChange={(date: Date) => setFormData({ ...formData, startDate: date })}
-                    disabled={formData.startDate < new Date()}
+                    onChange={(date: Date) => !tournamentStarted && setFormData({ ...formData, startDate: date })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate" className="text-white">Fecha de Fin</Label>
+                <div className={`space-y-2 ${tournamentStarted ? 'opacity-50' : ''}`}>
+                  <Label htmlFor="endDate" className="text-white">
+                    Fecha de Fin
+                    {tournamentStarted && <span className="text-yellow-400 ml-1">(No editable)</span>}
+                  </Label>
                   <DateTimePicker
                     value={formData.endDate}
-                    onChange={(date: Date) => setFormData({ ...formData, endDate: date })}
+                    onChange={(date: Date) => !tournamentStarted && setFormData({ ...formData, endDate: date })}
                   />
                 </div>
               </div>
@@ -298,7 +313,7 @@ export default function EditTournamentPage() {
                   <Input
                     id="pointsPerWin"
                     type="number"
-                    value={formData.pointsPerWin}
+                    value={formData.pointsPerWin || ''}
                     onChange={(e) => setFormData({ ...formData, pointsPerWin: parseInt(e.target.value || '0', 10) })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -308,7 +323,7 @@ export default function EditTournamentPage() {
                   <Input
                     id="pointsPerLoss"
                     type="number"
-                    value={formData.pointsPerLoss}
+                    value={formData.pointsPerLoss || ''}
                     onChange={(e) => setFormData({ ...formData, pointsPerLoss: parseInt(e.target.value || '0', 10) })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -321,7 +336,7 @@ export default function EditTournamentPage() {
                   <Input
                     id="pointsFirstBlood"
                     type="number"
-                    value={formData.pointsFirstBlood}
+                    value={formData.pointsFirstBlood || ''}
                     onChange={(e) => setFormData({ ...formData, pointsFirstBlood: parseInt(e.target.value || '0', 10) })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -331,7 +346,7 @@ export default function EditTournamentPage() {
                   <Input
                     id="pointsFirstTower"
                     type="number"
-                    value={formData.pointsFirstTower}
+                    value={formData.pointsFirstTower || ''}
                     onChange={(e) => setFormData({ ...formData, pointsFirstTower: parseInt(e.target.value || '0', 10) })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -341,7 +356,7 @@ export default function EditTournamentPage() {
                   <Input
                     id="pointsPerfectGame"
                     type="number"
-                    value={formData.pointsPerfectGame}
+                    value={formData.pointsPerfectGame || ''}
                     onChange={(e) => setFormData({ ...formData, pointsPerfectGame: parseInt(e.target.value || '0', 10) })}
                     className="bg-slate-700 border-slate-600 text-white"
                   />
@@ -418,6 +433,8 @@ export default function EditTournamentPage() {
               </div>
             </CardContent>
           </Card>
+
+
 
           {/* Botones */}
           <div className="flex gap-4">

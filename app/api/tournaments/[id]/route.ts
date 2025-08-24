@@ -12,7 +12,7 @@ export async function DELETE(
     // Verificar autenticación
     const { data: { session }, error: authError } = await supabase.auth.getSession();
     if (authError || !session) {
-      return new NextResponse("No autorizado", { status: 401 });
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     // Verificar que el usuario sea el creador del torneo
@@ -23,14 +23,18 @@ export async function DELETE(
       .single();
 
     if (tournamentError || !tournament) {
-      return new NextResponse("Torneo no encontrado", { status: 404 });
+      return NextResponse.json({ error: 'Torneo no encontrado' }, { status: 404 });
     }
 
-    if (tournament.creator_id !== session.user.id) {
-      return new NextResponse("No autorizado para eliminar este torneo", { status: 403 });
+    // Verificar permisos: ser el creador o ser admin
+    const adminEmail = 'dvdsalomon6@gmail.com';
+    const isOwner = tournament.creator_id === session.user.id || session.user.email === adminEmail;
+
+    if (!isOwner) {
+      return NextResponse.json({ error: 'No autorizado para eliminar este torneo' }, { status: 403 });
     }
 
-    // Eliminar el torneo
+    // Eliminar el torneo (CASCADE debería eliminar registros relacionados automáticamente)
     const { error: deleteError } = await supabase
       .from('tournaments')
       .delete()
@@ -39,10 +43,9 @@ export async function DELETE(
     if (deleteError) {
       throw deleteError;
     }
-
-    return new NextResponse(null, { status: 204 });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error: any) {
     console.error('[TOURNAMENTS_DELETE]', error);
-    return new NextResponse(error.message, { status: 500 });
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
 }

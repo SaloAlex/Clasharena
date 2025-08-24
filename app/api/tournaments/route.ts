@@ -12,8 +12,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    console.log('Fetching tournaments for user:', user.email);
-    
     const { data: tournaments, error } = await supabase
       .from('tournaments')
       .select('*')
@@ -21,10 +19,6 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error('[TOURNAMENTS_GET] Error:', error);
-      console.error('[TOURNAMENTS_GET] Error code:', error.code);
-      console.error('[TOURNAMENTS_GET] Error message:', error.message);
-      console.error('[TOURNAMENTS_GET] Error details:', error.details);
-      
       return NextResponse.json({ 
         error: 'Error al obtener torneos',
         details: error.message,

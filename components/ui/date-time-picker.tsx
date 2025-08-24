@@ -20,6 +20,7 @@ export interface DateTimePickerProps {
   minDate?: Date;
   maxDate?: Date;
   error?: string;
+  disabled?: boolean;
 }
 
 export function DateTimePicker({
@@ -29,6 +30,7 @@ export function DateTimePicker({
   minDate,
   maxDate,
   error,
+  disabled = false,
 }: DateTimePickerProps) {
   // Asegurar que value es una fecha válida
   const safeValue = React.useMemo(() => {
@@ -47,6 +49,7 @@ export function DateTimePicker({
 
   // Manejar cambio de hora
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     try {
       const [hours, minutes] = e.target.value.split(':');
       const newDate = new Date(safeValue);
@@ -63,12 +66,14 @@ export function DateTimePicker({
   return (
     <div className="space-y-1">
       <Popover>
-        <PopoverTrigger asChild>
+        <PopoverTrigger asChild disabled={disabled}>
           <Button
             variant={'outline'}
+            disabled={disabled}
             className={cn(
               'w-full justify-start text-left font-normal bg-slate-700 border-slate-600 text-white hover:bg-slate-600',
               error && 'border-red-500',
+              disabled && 'opacity-50 cursor-not-allowed',
               className
             )}
           >
@@ -84,21 +89,24 @@ export function DateTimePicker({
           <Calendar
             mode="single"
             selected={safeValue}
-            onSelect={(date) => date && onChange(date)}
+            onSelect={(date) => !disabled && date && onChange(date)}
             initialFocus
             locale={es}
             fromDate={minDate}
             toDate={maxDate}
             className="bg-slate-700 text-white"
+            disabled={disabled}
           />
           <div className="p-3 border-t border-slate-600">
             <input
               type="time"
               value={timeValue}
               onChange={handleTimeChange}
+              disabled={disabled}
               className={cn(
                 "w-full bg-slate-600 border border-slate-500 rounded px-2 py-1 text-white",
-                error && "border-red-500"
+                error && "border-red-500",
+                disabled && "opacity-50 cursor-not-allowed"
               )}
             />
           </div>

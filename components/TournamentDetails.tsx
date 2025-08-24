@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
-import { Trophy, Calendar, Users, Target, Clock, Star, UserPlus } from 'lucide-react';
+import { Trophy, Calendar, Users, Target, Clock, Star, UserPlus, ArrowLeft, Edit, Trash2, Gamepad2, Award, Zap, Shield, Crown, Users2, Timer, TrendingUp, BarChart3 } from 'lucide-react';
 import { TournamentParticipants } from '@/components/TournamentParticipants';
 import { TournamentLeaderboard } from '@/components/TournamentLeaderboard';
 import { formatDistance } from 'date-fns';
@@ -109,8 +109,6 @@ export function TournamentDetails({
   const isOwner = !!userForCheck && 
     (userForCheck.id === tournament.creator_id || userForCheck.email === adminEmail);
 
-
-
   const handleDelete = async () => {
     if (isDeleting) return;
     setIsDeleting(true);
@@ -133,6 +131,7 @@ export function TournamentDetails({
       setIsDeleting(false);
     }
   };
+
   const now = new Date();
   const startDate = tournament.start_at ? new Date(tournament.start_at) : now;
   const endDate = tournament.end_at ? new Date(tournament.end_at) : now;
@@ -189,6 +188,7 @@ export function TournamentDetails({
     !isNaN(endDate.getTime()) && 
     now >= startDate && 
     now <= endDate;
+
   // Verificar si el usuario actual está en la lista de participantes
   const [isParticipant, setIsParticipant] = useState(false);
 
@@ -212,8 +212,6 @@ export function TournamentDetails({
   const canRegister = currentUser && !isParticipant && 
     (tournament.status === 'upcoming' || tournament.status === 'active') &&
     now <= endDate;
-
-
 
   const handleRegistration = async () => {
     if (!currentUser) {
@@ -297,201 +295,330 @@ export function TournamentDetails({
     return formats[format as keyof typeof formats] || format;
   };
 
+  const getFormatDescription = (format: string) => {
+    const descriptions = {
+      'duration': 'Torneo por tiempo limitado',
+      'league': 'Clasificación por puntos acumulados',
+      'elimination': 'Eliminación directa hasta el ganador',
+      'mixed': 'Combinación de diferentes formatos'
+    };
+    return descriptions[format as keyof typeof descriptions] || 'Formato no especificado';
+  };
+
+  const getFormatIcon = (format: string) => {
+    switch (format) {
+      case 'duration':
+        return <Timer className="w-5 h-5 text-orange-400" />;
+      case 'league':
+        return <Trophy className="w-5 h-5 text-yellow-400" />;
+      case 'elimination':
+        return <Target className="w-5 h-5 text-red-400" />;
+      case 'mixed':
+        return <Award className="w-5 h-5 text-purple-400" />;
+      default:
+        return <Trophy className="w-5 h-5 text-slate-400" />;
+    }
+  };
+
   return (
     <div className="space-y-8">
-      {/* Tournament Header */}
-      <Card className="border-slate-700 bg-slate-800/50">
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <Trophy className="w-8 h-8 text-yellow-500" />
-              <div>
-                <CardTitle className="text-3xl text-white">{tournament.title}</CardTitle>
-                <CardDescription className="text-lg mt-1 text-slate-400">
+      {/* Back Navigation */}
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/tournaments')}
+          className="text-slate-400 hover:text-white hover:bg-slate-800/50"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver a Torneos
+        </Button>
+      </div>
+
+      {/* Tournament Header - Enhanced */}
+      <Card className="border-slate-700 bg-gradient-to-br from-slate-800/50 to-slate-900/50 overflow-hidden relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+        
+        <CardHeader className="relative">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <Trophy className="w-8 h-8 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Star className="w-3 h-3 text-white" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-4xl font-bold text-white mb-2 leading-tight">
+                  {tournament.title}
+                </CardTitle>
+                <CardDescription className="text-lg text-slate-300 leading-relaxed">
                   {tournament.description || 'Sin descripción'}
                 </CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-
-
-
-              {isOwner && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/t/${tournament.id}/edit`);
-                    }}
-                  >
-                    Editar
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Eliminar
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="bg-slate-900 border border-slate-800">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle className="text-white">¿Eliminar torneo?</AlertDialogTitle>
-                        <AlertDialogDescription className="text-slate-400">
-                          Esta acción no se puede deshacer. Se eliminarán todos los datos del torneo,
-                          incluyendo registros de participantes y puntuaciones.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel 
-                          className="bg-slate-800 text-white hover:bg-slate-700 border-slate-700"
+            
+            <div className="flex flex-col items-end gap-4">
+              <div className="flex items-center gap-3">
+                {getStatusBadge()}
+                {isOwner && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/t/${tournament.id}/edit`);
+                      }}
+                      className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 hover:border-blue-400"
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={(e) => e.stopPropagation()}
+                          className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:border-red-400"
                         >
-                          Cancelar
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-red-600 text-white hover:bg-red-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete();
-                          }}
-                        >
-                          {isDeleting ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                              Eliminando...
-                            </>
-                          ) : (
-                            'Eliminar Torneo'
-                          )}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
-              {getStatusBadge()}
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Eliminar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="bg-slate-900 border border-slate-800">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-white">¿Eliminar torneo?</AlertDialogTitle>
+                          <AlertDialogDescription className="text-slate-400">
+                            Esta acción no se puede deshacer. Se eliminarán todos los datos del torneo,
+                            incluyendo registros de participantes y puntuaciones.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel 
+                            className="bg-slate-800 text-white hover:bg-slate-700 border-slate-700"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Cancelar
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete();
+                            }}
+                          >
+                            {isDeleting ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                Eliminando...
+                              </>
+                            ) : (
+                              'Eliminar Torneo'
+                            )}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* Tournament Stats */}
-          <div className="grid md:grid-cols-4 gap-4">
-            <div className="flex items-center space-x-3">
-              <Calendar className="w-5 h-5 text-blue-400" />
-              <div>
-                <p className="text-sm text-slate-400">Duración</p>
-                <p className="font-medium text-white">
-                  {!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) 
-                    ? formatDuration()
-                    : 'Duración no disponible'}
-                </p>
+        <CardContent className="space-y-8">
+          {/* Enhanced Tournament Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-blue-500/30 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <Timer className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Duración</p>
+                  <p className="font-semibold text-white">
+                    {!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) 
+                      ? formatDuration()
+                      : 'No disponible'}
+                  </p>
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-3">
-              <Trophy className="w-5 h-5 text-green-400" />
-              <div>
-                <p className="text-sm text-slate-400">Formato</p>
-                <p className="font-medium text-white">{getFormatLabel(tournament.format)}</p>
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-green-500/30 transition-colors group">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center group-hover:bg-green-500/30 transition-colors">
+                  {getFormatIcon(tournament.format)}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-slate-400">Formato</p>
+                  <p className="font-semibold text-white">{getFormatLabel(tournament.format)}</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {getFormatDescription(tournament.format)}
+              </p>
+            </div>
+
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-purple-500/30 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                  <Users2 className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Participantes</p>
+                  <p className="font-semibold text-white">1</p>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
-              <Users className="w-5 h-5 text-purple-400" />
-              <div>
-                <p className="text-sm text-slate-400">Participantes</p>
-                <p className="font-medium text-white">1</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <Clock className="w-5 h-5 text-orange-400" />
-              <div>
-                <p className="text-sm text-slate-400">Estado</p>
-                <p className="font-medium text-white">
-                  {formatStatus()}
-                </p>
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-orange-500/30 transition-colors">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-400">Estado</p>
+                  <p className="font-semibold text-white">
+                    {formatStatus()}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Registration Status & Action */}
-          <div className="space-y-6">
-            {(canRegister || isParticipant) && (
-              <div className="flex items-center justify-between p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                              <div>
-                <h3 className="font-medium text-blue-300">
-                  {isParticipant ? '¡Estás registrado!' : 'Registro Abierto'}
-                </h3>
-                <p className="text-sm text-slate-400 mt-1">
-                  {isParticipant 
-                    ? 'Juega partidas para ganar puntos y subir en la clasificación'
-                    : 'Únete a este torneo y comienza a competir'
-                  }
-                </p>
-
-              </div>
+          {/* Enhanced Registration Status & Action */}
+          {(canRegister || isParticipant) && (
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-6 border border-blue-500/20 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+              <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    {isParticipant ? (
+                      <Crown className="w-6 h-6 text-blue-400" />
+                    ) : (
+                      <UserPlus className="w-6 h-6 text-blue-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-blue-300 mb-1">
+                      {isParticipant ? '¡Estás registrado!' : 'Registro Abierto'}
+                    </h3>
+                    <p className="text-slate-300 leading-relaxed">
+                      {isParticipant 
+                        ? 'Juega partidas para ganar puntos y subir en la clasificación. ¡Demuestra tu habilidad!'
+                        : 'Únete a este torneo épico y comienza tu camino hacia la victoria'
+                      }
+                    </p>
+                  </div>
+                </div>
                 {canRegister && (
                   <Button 
                     onClick={handleRegistration}
                     disabled={isRegistering}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-8 py-3"
                   >
                     {isRegistering ? (
-                      'Registrando...'
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                        Registrando...
+                      </>
                     ) : (
                       <>
-                        <UserPlus className="w-4 h-4 mr-2" />
+                        <UserPlus className="w-5 h-5 mr-2" />
                         Unirse al Torneo
                       </>
                     )}
                   </Button>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Lista de Participantes */}
-            <TournamentParticipants tournamentId={tournament.id} />
-          </div>
+          {/* Lista de Participantes */}
+          <TournamentParticipants tournamentId={tournament.id} />
         </CardContent>
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Tournament Rules */}
-        <Card className="border-slate-700 bg-slate-800/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Target className="w-5 h-5 text-blue-500" />
-              Reglas y Puntuación
+        {/* Enhanced Tournament Rules */}
+        <Card className="border-slate-700 bg-gradient-to-br from-slate-800/50 to-slate-900/50 overflow-hidden relative">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+          
+          <CardHeader className="relative">
+            <CardTitle className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                <Target className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <div className="text-xl font-semibold">Reglas y Puntuación</div>
+                <div className="text-sm text-slate-400 font-normal">Sistema de puntos y modos de juego</div>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          
+          <CardContent className="space-y-6 relative">
+            {/* Daily Limit Section */}
             {tournament.max_games_per_day > 0 && (
-              <div>
-                <h4 className="font-medium mb-2 text-white">Límite Diario</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Máx. partidas por día</span>
-                    <span className="text-white">{tournament.max_games_per_day}</span>
+              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                    <Timer className="w-4 h-4 text-orange-400" />
                   </div>
+                  <h4 className="font-semibold text-white">Límite Diario</h4>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-300">Máximo partidas por día</span>
+                  <Badge variant="outline" className="text-orange-400 border-orange-400">
+                    {tournament.max_games_per_day}
+                  </Badge>
                 </div>
               </div>
             )}
 
             <Separator className="bg-slate-700" />
 
+            {/* Tournament Format Section */}
             <div>
-              <h4 className="font-medium mb-2 text-white">Modos de Juego</h4>
-              <p className="text-sm text-slate-400 mb-3">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  {getFormatIcon(tournament.format)}
+                </div>
+                <h4 className="font-semibold text-white">Formato del Torneo</h4>
+              </div>
+              <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-white font-medium">{getFormatLabel(tournament.format)}</span>
+                  <Badge variant="outline" className="text-blue-400 border-blue-400">
+                    {tournament.format.toUpperCase()}
+                  </Badge>
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  {getFormatDescription(tournament.format)}
+                </p>
+              </div>
+            </div>
+
+            <Separator className="bg-slate-700" />
+
+            {/* Game Modes Section */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <Gamepad2 className="w-4 h-4 text-green-400" />
+                </div>
+                <h4 className="font-semibold text-white">Modos de Juego</h4>
+              </div>
+              <p className="text-slate-300 mb-4 leading-relaxed">
                 Los puntos ganados en cada modo se multiplican según su dificultad:
               </p>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-4">
                 {(() => {
                   // Configuración por defecto si no hay queues configuradas
                   const defaultQueues = {
@@ -512,7 +639,8 @@ export function TournamentDetails({
 
                   if (enabledQueues.length === 0) {
                     return (
-                      <div className="text-center py-4 text-slate-400">
+                      <div className="text-center py-8 text-slate-400 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                        <Gamepad2 className="w-12 h-12 mx-auto mb-3 text-slate-500" />
                         <p>No hay modos de juego configurados para este torneo.</p>
                       </div>
                     );
@@ -540,33 +668,41 @@ export function TournamentDetails({
                     };
                     
                     return (
-                      <div key={key} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-white font-medium">{name}</span>
-                          <Badge variant="outline" className="text-blue-400 border-blue-400">
+                      <div key={key} className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-green-500/30 transition-colors">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-2">
+                            <Gamepad2 className="w-4 h-4 text-green-400" />
+                            <span className="text-white font-semibold">{name}</span>
+                          </div>
+                          <Badge variant="outline" className="text-green-400 border-green-400">
                             Multiplicador x{multiplier}
                           </Badge>
                         </div>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex justify-between items-center">
                             <span className="text-slate-400">Victoria</span>
-                            <span className="text-green-400">+{points.victoria} puntos</span>
+                            <span className="text-green-400 font-medium">+{points.victoria}</span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span className="text-slate-400">Derrota</span>
-                            <span className="text-red-400">+{points.derrota} puntos</span>
+                            <span className="text-red-400 font-medium">+{points.derrota}</span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span className="text-slate-400">Primera Sangre</span>
-                            <span className="text-blue-400">+{points.firstBlood} puntos</span>
+                            <span className="text-blue-400 font-medium">+{points.firstBlood}</span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex justify-between items-center">
                             <span className="text-slate-400">Primera Torre</span>
-                            <span className="text-blue-400">+{points.firstTower} puntos</span>
+                            <span className="text-blue-400 font-medium">+{points.firstTower}</span>
                           </div>
-                          <div className="flex justify-between">
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-slate-700/50">
+                          <div className="flex justify-between items-center">
                             <span className="text-slate-400">Partida Perfecta</span>
-                            <span className="text-purple-400">+{points.perfectGame} puntos</span>
+                            <span className="text-purple-400 font-medium">+{points.perfectGame}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 mt-1 italic">
+                            Victoria + 0 muertes + 0 torres perdidas
                           </div>
                         </div>
                       </div>
@@ -574,30 +710,63 @@ export function TournamentDetails({
                   });
                 })()}
               </div>
-
-              <Separator className="bg-slate-700 my-4" />
-
-              <h4 className="font-medium mb-2 text-white">Restricciones de Rango</h4>
-              <div className="space-y-2 text-sm">
-                {tournament.min_rank !== 'NONE' && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Rango Mínimo</span>
-                    <span className="text-white">{tournament.min_rank}</span>
-                  </div>
-                )}
-                {tournament.max_rank !== 'NONE' && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Rango Máximo</span>
-                    <span className="text-white">{tournament.max_rank}</span>
-                  </div>
-                )}
-              </div>
             </div>
+
+            <Separator className="bg-slate-700" />
+
+            {/* Rank Restrictions Section */}
+            {(tournament.min_rank !== 'NONE' || tournament.max_rank !== 'NONE') && (
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <h4 className="font-semibold text-white">Restricciones de Rango</h4>
+                </div>
+                <div className="space-y-3">
+                  {tournament.min_rank !== 'NONE' && (
+                    <div className="flex justify-between items-center bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                      <span className="text-slate-300">Rango Mínimo</span>
+                      <Badge variant="outline" className="text-purple-400 border-purple-400">
+                        {tournament.min_rank}
+                      </Badge>
+                    </div>
+                  )}
+                  {tournament.max_rank !== 'NONE' && (
+                    <div className="flex justify-between items-center bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
+                      <span className="text-slate-300">Rango Máximo</span>
+                      <Badge variant="outline" className="text-purple-400 border-purple-400">
+                        {tournament.max_rank}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Tournament Leaderboard */}
-        <TournamentLeaderboard tournamentId={tournament.id} showCompleteButton={true} />
+        {/* Enhanced Tournament Leaderboard */}
+        <Card className="border-slate-700 bg-gradient-to-br from-slate-800/50 to-slate-900/50 overflow-hidden relative">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5"></div>
+          
+          <CardHeader className="relative">
+            <CardTitle className="flex items-center gap-3 text-white">
+              <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-purple-400" />
+              </div>
+              <div>
+                <div className="text-xl font-semibold">Clasificación</div>
+                <div className="text-sm text-slate-400 font-normal">Ranking de participantes</div>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent className="relative">
+            <TournamentLeaderboard tournamentId={tournament.id} showCompleteButton={true} />
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
