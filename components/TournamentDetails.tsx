@@ -471,8 +471,14 @@ export function TournamentDetails({
                 Los puntos ganados en cada modo se multiplican según su dificultad:
               </p>
               <div className="space-y-2 text-sm">
-                {tournament.queues && Object.entries(tournament.queues).map(([key, config]: [string, any]) => {
-                  if (!config?.enabled) return null;
+                {(() => {
+                  // Configuración por defecto si no hay queues configuradas
+                  const defaultQueues = {
+                    ranked_solo: { enabled: true, pointMultiplier: 1.0 },
+                    ranked_flex: { enabled: true, pointMultiplier: 0.8 }
+                  };
+
+                  const queues = tournament.queues || defaultQueues;
                   const queueNames = {
                     ranked_solo: 'Ranked Solo/Duo',
                     ranked_flex: 'Ranked Flex',
@@ -480,49 +486,72 @@ export function TournamentDetails({
                     normal_blind: 'Normal Blind Pick',
                     aram: 'ARAM'
                   };
-                  const name = queueNames[key as keyof typeof queueNames] || key;
-                  const multiplier = config.pointMultiplier;
-                  const points = {
-                    victoria: Math.round(tournament.points_per_win * multiplier),
-                    derrota: Math.round(tournament.points_per_loss * multiplier),
-                    firstBlood: Math.round(tournament.points_first_blood * multiplier),
-                    firstTower: Math.round(tournament.points_first_tower * multiplier),
-                    perfectGame: Math.round(tournament.points_perfect_game * multiplier)
-                  };
-                  
-                  return (
-                    <div key={key} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-white font-medium">{name}</span>
-                        <Badge variant="outline" className="text-blue-400 border-blue-400">
-                          Multiplicador x{multiplier}
-                        </Badge>
+
+                  const enabledQueues = Object.entries(queues).filter(([key, config]: [string, any]) => config?.enabled);
+
+                  if (enabledQueues.length === 0) {
+                    return (
+                      <div className="text-center py-4 text-slate-400">
+                        <p>No hay modos de juego configurados para este torneo.</p>
                       </div>
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Victoria</span>
-                          <span className="text-green-400">+{points.victoria} puntos</span>
+                    );
+                  }
+
+                  return enabledQueues.map(([key, config]: [string, any]) => {
+                    const name = queueNames[key as keyof typeof queueNames] || key;
+                    const multiplier = config.pointMultiplier || 1;
+                    
+                    // Valores por defecto para los puntos si no están configurados
+                    const defaultPoints = {
+                      points_per_win: 10,
+                      points_per_loss: 5,
+                      points_first_blood: 2,
+                      points_first_tower: 2,
+                      points_perfect_game: 5
+                    };
+
+                    const points = {
+                      victoria: Math.round((tournament.points_per_win ?? defaultPoints.points_per_win) * multiplier),
+                      derrota: Math.round((tournament.points_per_loss ?? defaultPoints.points_per_loss) * multiplier),
+                      firstBlood: Math.round((tournament.points_first_blood ?? defaultPoints.points_first_blood) * multiplier),
+                      firstTower: Math.round((tournament.points_first_tower ?? defaultPoints.points_first_tower) * multiplier),
+                      perfectGame: Math.round((tournament.points_perfect_game ?? defaultPoints.points_perfect_game) * multiplier)
+                    };
+                    
+                    return (
+                      <div key={key} className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-white font-medium">{name}</span>
+                          <Badge variant="outline" className="text-blue-400 border-blue-400">
+                            Multiplicador x{multiplier}
+                          </Badge>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Derrota</span>
-                          <span className="text-red-400">+{points.derrota} puntos</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Primera Sangre</span>
-                          <span className="text-blue-400">+{points.firstBlood} puntos</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Primera Torre</span>
-                          <span className="text-blue-400">+{points.firstTower} puntos</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Partida Perfecta</span>
-                          <span className="text-purple-400">+{points.perfectGame} puntos</span>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Victoria</span>
+                            <span className="text-green-400">+{points.victoria} puntos</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Derrota</span>
+                            <span className="text-red-400">+{points.derrota} puntos</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Primera Sangre</span>
+                            <span className="text-blue-400">+{points.firstBlood} puntos</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Primera Torre</span>
+                            <span className="text-blue-400">+{points.firstTower} puntos</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Partida Perfecta</span>
+                            <span className="text-purple-400">+{points.perfectGame} puntos</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
 
               <Separator className="bg-slate-700 my-4" />

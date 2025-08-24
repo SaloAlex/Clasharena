@@ -36,10 +36,10 @@ export default function AuthPage() {
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
       
-      console.log('Attempting sign in for:', email);
+
       
       const result = await signIn(email, password);
-      console.log('Sign in result:', result);
+
       
       // Esperar a que la sesión se establezca
       const maxAttempts = 10;
@@ -47,10 +47,10 @@ export default function AuthPage() {
       
       const checkSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Checking session attempt', attempts + 1, ':', session?.user?.email);
+
         
         if (session) {
-          console.log('✅ Session established:', session.user.email);
+  
           toast.success('¡Sesión iniciada correctamente!');
           router.replace(redirectTo);
         } else if (attempts < maxAttempts) {

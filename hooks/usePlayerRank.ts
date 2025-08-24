@@ -52,7 +52,7 @@ export function usePlayerRank(puuid?: string): UsePlayerRankReturn {
       }
 
       const data = await response.json();
-      console.log('LoadRank response:', data);
+
       if (data.error) {
         throw new Error(data.error || 'Error al cargar el rango');
       }
@@ -94,7 +94,7 @@ export function usePlayerRank(puuid?: string): UsePlayerRankReturn {
       }
 
       const data = await response.json();
-      console.log('Refresh rank response:', data);
+
       
       if (data.error) {
         throw new Error(data.error || 'Error al actualizar el rango');
