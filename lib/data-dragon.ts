@@ -1,160 +1,47 @@
-// MAPEO DE CAMPEONES CON NOMBRES ESPECIALES EN DATA DRAGON
-const CHAMPION_KEY_MAPPING: { [championId: number]: string } = {
-  // Wukong es el problema principal
-  62: 'MonkeyKing',        // Wukong -> MonkeyKing
+// CACHE PARA EL MAPPING OFICIAL DE CAMPEONES DE DATA DRAGON
+type ChampMaps = { version: string; idToKey: Record<number, string> };
+let CHAMP_CACHE: ChampMaps | null = null;
+
+// FUNCIÓN PARA OBTENER LA ÚLTIMA VERSIÓN DE DATA DRAGON
+async function getLatestVersion(): Promise<string> {
+  try {
+    const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json', { cache: 'no-store' });
+    const arr: string[] = await res.json();
+    return arr[0]; // última versión
+  } catch (error) {
+    console.warn('[DataDragon] Error obteniendo última versión, usando fallback:', error);
+    return '14.22.1';
+  }
+}
+
+// FUNCIÓN PARA OBTENER Y CACHEAR EL MAPPING OFICIAL DE CAMPEONES
+async function ensureChampMap(version?: string): Promise<ChampMaps> {
+  if (CHAMP_CACHE && (!version || CHAMP_CACHE.version === version)) {
+    return CHAMP_CACHE;
+  }
   
-  // Otros casos especiales comunes
-  32: 'Amumu',
-  34: 'Anivia', 
-  1: 'Annie',
-  22: 'Ashe',
-  136: 'AurelionSol',      // Aurelion Sol -> AurelionSol
-  268: 'Azir',
-  432: 'Bard',
-  53: 'Blitzcrank',
-  63: 'Brand',
-  201: 'Braum',
-  51: 'Caitlyn',
-  164: 'Camille',
-  69: 'Cassiopeia',
-  31: 'Chogath',           // Cho'Gath -> Chogath
-  42: 'Corki',
-  122: 'Darius',
-  131: 'Diana',
-  36: 'DrMundo',           // Dr. Mundo -> DrMundo
-  119: 'Draven',
-  245: 'Ekko',
-  60: 'Elise',
-  28: 'Evelynn',
-  81: 'Ezreal',
-  9: 'Fiddlesticks',
-  114: 'Fiora',
-  105: 'Fizz',
-  3: 'Galio',
-  41: 'Gangplank',
-  86: 'Garen',
-  150: 'Gnar',
-  79: 'Gragas',
-  104: 'Graves',
-  887: 'Gwen',
-  120: 'Hecarim',
-  74: 'Heimerdinger',
-  420: 'Illaoi',
-  39: 'Irelia',
-  427: 'Ivern',
-  40: 'Janna',
-  59: 'JarvanIV',          // Jarvan IV -> JarvanIV
-  24: 'Jax',
-  126: 'Jayce',
-  202: 'Jhin',
-  222: 'Jinx',
-  145: 'Kaisa',            // Kai'Sa -> Kaisa
-  429: 'Kalista',
-  43: 'Karma',
-  30: 'Karthus',
-  38: 'Kassadin',
-  55: 'Katarina',
-  10: 'Kayle',
-  141: 'Kayn',
-  85: 'Kennen',
-  121: 'Khazix',           // Kha'Zix -> Khazix
-  203: 'Kindred',
-  240: 'Kled',
-  96: 'KogMaw',            // Kog'Maw -> KogMaw
-  897: 'KSante',           // K'Sante -> KSante
-  7: 'Leblanc',            // LeBlanc -> Leblanc
-  64: 'LeeSin',            // Lee Sin -> LeeSin
-  89: 'Leona',
-  876: 'Lillia',
-  127: 'Lissandra',
-  236: 'Lucian',
-  117: 'Lulu',
-  99: 'Lux',
-  54: 'Malphite',
-  90: 'Malzahar',
-  57: 'Maokai',
-  11: 'MasterYi',          // Master Yi -> MasterYi
-  21: 'MissFortune',       // Miss Fortune -> MissFortune
-  82: 'Mordekaiser',
-  25: 'Morgana',
-  267: 'Nami',
-  75: 'Nasus',
-  111: 'Nautilus',
-  518: 'Neeko',
-  76: 'Nidalee',
-  895: 'Nilah',
-  56: 'Nocturne',
-  20: 'Nunu',             // Nunu & Willump -> Nunu
-  2: 'Olaf',
-  61: 'Orianna',
-  516: 'Ornn',
-  80: 'Pantheon',
-  78: 'Poppy',
-  555: 'Pyke',
-  246: 'Qiyana',
-  133: 'Quinn',
-  497: 'Rakan',
-  33: 'Rammus',
-  421: 'RekSai',           // Rek'Sai -> RekSai
-  526: 'Rell',
-  888: 'Renata',          // Renata Glasc -> Renata
-  58: 'Renekton',
-  107: 'Rengar',
-  92: 'Riven',
-  68: 'Rumble',
-  13: 'Ryze',
-  113: 'Sejuani',
-  235: 'Senna',
-  147: 'Seraphine',
-  875: 'Sett',
-  35: 'Shaco',
-  98: 'Shen',
-  102: 'Shyvana',
-  27: 'Singed',
-  14: 'Sion',
-  15: 'Sivir',
-  72: 'Skarner',
-  37: 'Sona',
-  16: 'Soraka',
-  50: 'Swain',
-  517: 'Sylas',
-  134: 'Syndra',
-  223: 'TahmKench',        // Tahm Kench -> TahmKench
-  163: 'Taliyah',
-  91: 'Talon',
-  44: 'Taric',
-  17: 'Teemo',
-  412: 'Thresh',
-  18: 'Tristana',
-  48: 'Trundle',
-  23: 'Tryndamere',
-  4: 'TwistedFate',        // Twisted Fate -> TwistedFate
-  29: 'Twitch',
-  77: 'Udyr',
-  6: 'Urgot',
-  110: 'Varus',
-  67: 'Vayne',
-  45: 'Veigar',
-  161: 'Velkoz',           // Vel'Koz -> Velkoz
-  254: 'Vi',
-  711: 'Viego',
-  112: 'Viktor',
-  8: 'Vladimir',
-  106: 'Volibear',
-  19: 'Warwick',
-  498: 'Xayah',
-  101: 'Xerath',
-  5: 'XinZhao',           // Xin Zhao -> XinZhao
-  83: 'Yorick',
-  350: 'Yuumi',
-  154: 'Zac',
-  238: 'Zed',
-  221: 'Zeri',
-  115: 'Ziggs',
-  26: 'Zilean',
-  142: 'Zoe',
-  143: 'Zyra'
-};
+  const ver = version ?? await getLatestVersion();
+  const url = `https://ddragon.leagueoflegends.com/cdn/${ver}/data/en_US/champion.json`;
+  
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+
+    const idToKey: Record<number, string> = {};
+    // data.data = { Aatrox: { key: "266", ... }, Ahri: { key:"103", ... }, ... }
+    for (const [key, obj] of Object.entries<any>(data.data)) {
+      idToKey[Number(obj.key)] = key;
+    }
+    
+    CHAMP_CACHE = { version: ver, idToKey };
+    console.log(`[DataDragon] Cached champion mapping for version ${ver} with ${Object.keys(idToKey).length} champions`);
+    return CHAMP_CACHE;
+  } catch (error) {
+    console.error('[DataDragon] Error obteniendo champion mapping:', error);
+    // Fallback a versión conocida
+    return { version: '14.22.1', idToKey: {} };
+  }
+}
 
 // VERSIONES ESTABLES DE DATA DRAGON (probadas y funcionando)
 const STABLE_VERSIONS = [
@@ -166,11 +53,6 @@ const STABLE_VERSIONS = [
 ];
 
 let validVersion: string | null = null;
-
-// FUNCIÓN PARA OBTENER EL NOMBRE CORRECTO DEL CAMPEÓN
-function getChampionKey(championId: number): string {
-  return CHAMPION_KEY_MAPPING[championId] || `Champion${championId}`;
-}
 
 // FUNCIÓN PARA OBTENER VERSIÓN VÁLIDA DE DATA DRAGON
 async function getStableDataDragonVersion(): Promise<string> {
@@ -198,37 +80,40 @@ async function getStableDataDragonVersion(): Promise<string> {
   return validVersion;
 }
 
-// FUNCIÓN PRINCIPAL PARA OBTENER URL DE IMAGEN DE CAMPEÓN
+// FUNCIÓN PRINCIPAL PARA OBTENER URL DE IMAGEN DE CAMPEÓN (USANDO MAPPING OFICIAL)
 export async function getChampionImageUrl(championId: number): Promise<string> {
   try {
-    const championKey = getChampionKey(championId);
-    const version = await getStableDataDragonVersion();
-    const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${championKey}.png`;
-    
-    // Verificar que la URL funciona
-    const testResponse = await fetch(imageUrl, { method: 'HEAD' });
-    
-    if (testResponse.ok) {
-      return imageUrl;
-    } else {
-      // Usar imagen por defecto
+    const { version, idToKey } = await ensureChampMap();
+    const champKey = idToKey[championId];
+
+    // Si no lo encuentra (muy raro), devolver un fallback visible pero loguear
+    if (!champKey) {
+      console.warn(`[DataDragon] Unknown champion ID ${championId} → fallback Aatrox`);
       return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/Aatrox.png`;
     }
+
+    const imageUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champKey}.png`;
+    return imageUrl;
     
   } catch (error) {
-    const version = await getStableDataDragonVersion();
-    return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/Aatrox.png`;
+    console.error(`[DataDragon] Error in getChampionImageUrl for ID ${championId}:`, error);
+    return `https://ddragon.leagueoflegends.com/cdn/14.22.1/img/champion/Aatrox.png`;
   }
 }
 
 // FUNCIÓN PARA OBTENER MÚLTIPLES IMÁGENES DE CAMPEONES
 export async function getBulkChampionImages(championIds: number[]): Promise<{ [championId: number]: string }> {
-  const version = await getStableDataDragonVersion();
+  const { version, idToKey } = await ensureChampMap();
   const results: { [championId: number]: string } = {};
   
   for (const championId of championIds) {
-    const championKey = getChampionKey(championId);
-    results[championId] = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${championKey}.png`;
+    const champKey = idToKey[championId];
+    if (champKey) {
+      results[championId] = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champKey}.png`;
+    } else {
+      // Fallback para campeones no encontrados
+      results[championId] = `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/Aatrox.png`;
+    }
   }
   
   return results;

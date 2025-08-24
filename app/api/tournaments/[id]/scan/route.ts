@@ -118,18 +118,18 @@ async function scanTournamentMatches(tournamentId: string) {
       // Obtener partidas recientes
       const matchIds = await getRecentMatchIds(riotAccount.puuid, riotAccount.region);
 
-      for (const matchId of matchIds) {
-        // Verificar si ya procesamos esta partida
-        const { data: existingMatch } = await supabaseAdmin
-          .from('match_records')
-          .select('id')
-          .eq('match_id', matchId)
-          .eq('registration_id', registration.id)
-          .single();
+             for (const matchId of matchIds) {
+         // Verificar si ya procesamos esta partida
+         const { data: existingMatch } = await supabaseAdmin
+           .from('match_records')
+           .select('id')
+           .eq('match_id', matchId)
+           .eq('registration_id', registration.id)
+           .single();
 
-        if (existingMatch) {
-          continue;
-        }
+         if (existingMatch) {
+           continue;
+         }
 
         // Obtener detalles de la partida
         const matchData = await getMatchDetails(matchId, riotAccount.region);
@@ -163,6 +163,8 @@ async function scanTournamentMatches(tournamentId: string) {
         // Calcular puntos
         const kda = player.deaths > 0 ? (player.kills + player.assists) / player.deaths : player.kills + player.assists;
         
+        
+        
         // Normalización de puntos (camelCase vs snake_case)
         const baseWin = Number(tournament.points_per_win ?? tournament.pointsPerWin ?? 0);
         const baseLoss = Number(tournament.points_per_loss ?? tournament.pointsPerLoss ?? 0);
@@ -173,6 +175,8 @@ async function scanTournamentMatches(tournamentId: string) {
         // Multiplicador por cola (si está configurado)
         const qCfg = Object.values(queues ?? {}).find((q: any) => (q as any)?.id === matchData.info.queueId);
         const queueMult = Number((qCfg as any)?.pointMultiplier ?? 1);
+
+
 
         // Cálculo de puntos
         let points = player.win ? baseWin : baseLoss;
@@ -185,17 +189,17 @@ async function scanTournamentMatches(tournamentId: string) {
         }
 
         // Bonus especiales
-        if (player.firstBloodKill && pFirstBlood > 0) {
+        if ((player.firstBloodKill || player.firstBloodAssist) && pFirstBlood > 0) {
           points += pFirstBlood;
           reasons.push('FIRST_BLOOD');
         }
 
-        if (player.firstTowerKill && pFirstTower > 0) {
+        if ((player.firstTowerKill || player.firstTowerAssist) && pFirstTower > 0) {
           points += pFirstTower;
           reasons.push('FIRST_TOWER');
         }
 
-        if (player.deaths === 0 && pPerfectGame > 0) {
+        if (player.deaths === 0 && player.assists > 0 && pPerfectGame > 0) {
           points += pPerfectGame;
           reasons.push('PERFECT_GAME');
         }
@@ -275,11 +279,13 @@ async function scanTournamentMatches(tournamentId: string) {
 
 
 
-  return {
-    processedMatches,
-    newPoints,
-    tournamentTitle: tournament.title,
-  };
+  
+   
+   return {
+     processedMatches,
+     newPoints,
+     tournamentTitle: tournament.title,
+   };
 }
 
 export async function POST(
