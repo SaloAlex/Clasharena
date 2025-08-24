@@ -9,10 +9,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
-import { Trophy, Calendar, Medal, Settings } from 'lucide-react';
+import { Trophy, Calendar, Medal, Settings, Gamepad2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { Switch } from '@/components/ui/switch';
+
+interface QueueConfig {
+  enabled: boolean;
+  pointMultiplier: number;
+  id: number;
+}
 
 interface TournamentFormData {
   title: string;
@@ -28,6 +35,13 @@ interface TournamentFormData {
   minRank: string;
   maxRank: string;
   maxGamesPerDay: number;
+  queues: {
+    ranked_solo: QueueConfig;
+    ranked_flex: QueueConfig;
+    normal_draft: QueueConfig;
+    normal_blind: QueueConfig;
+    aram: QueueConfig;
+  };
 }
 
 export default function EditTournamentPage() {
@@ -50,7 +64,14 @@ export default function EditTournamentPage() {
     pointsPerfectGame: 50,
     minRank: 'NONE',
     maxRank: 'NONE',
-    maxGamesPerDay: 0
+    maxGamesPerDay: 0,
+    queues: {
+      ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
+      ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
+      normal_draft: { enabled: false, pointMultiplier: 0.6, id: 400 },
+      normal_blind: { enabled: false, pointMultiplier: 0.5, id: 430 },
+      aram: { enabled: false, pointMultiplier: 0.4, id: 450 }
+    }
   });
 
   const loadTournament = useCallback(async () => {
@@ -90,6 +111,28 @@ export default function EditTournamentPage() {
         }
       }
 
+      // Configuración por defecto de colas (completa)
+      const defaultQueues = {
+        ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
+        ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
+        normal_draft: { enabled: false, pointMultiplier: 0.6, id: 400 },
+        normal_blind: { enabled: false, pointMultiplier: 0.5, id: 430 },
+        aram: { enabled: false, pointMultiplier: 0.4, id: 450 }
+      };
+
+      // Fusionar las colas existentes con las por defecto para asegurar que todas estén presentes
+      const existingQueues = tournament.queues || {};
+      const mergedQueues = {
+        ...defaultQueues,
+        ...existingQueues,
+        // Asegurar que cada cola tenga todos los campos necesarios
+        ranked_solo: { ...defaultQueues.ranked_solo, ...existingQueues.ranked_solo },
+        ranked_flex: { ...defaultQueues.ranked_flex, ...existingQueues.ranked_flex },
+        normal_draft: { ...defaultQueues.normal_draft, ...existingQueues.normal_draft },
+        normal_blind: { ...defaultQueues.normal_blind, ...existingQueues.normal_blind },
+        aram: { ...defaultQueues.aram, ...existingQueues.aram }
+      };
+
       setFormData({
         title: tournament.title,
         description: tournament.description,
@@ -103,7 +146,8 @@ export default function EditTournamentPage() {
         pointsPerfectGame: tournament.points_perfect_game ?? 50,
         minRank: tournament.min_rank ?? 'NONE',
         maxRank: tournament.max_rank ?? 'NONE',
-        maxGamesPerDay: tournament.max_games_per_day ?? 0
+        maxGamesPerDay: tournament.max_games_per_day ?? 0,
+        queues: mergedQueues
       });
     } catch (error: any) {
       toast.error(error.message);
@@ -130,6 +174,13 @@ export default function EditTournamentPage() {
       }
     }
 
+    // Validar que al menos una cola esté habilitada
+    const hasEnabledQueue = Object.values(formData.queues).some(queue => queue.enabled);
+    if (!hasEnabledQueue) {
+      toast.error('Debes habilitar al menos una cola de juego');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -145,7 +196,8 @@ export default function EditTournamentPage() {
         points_perfect_game: formData.pointsPerfectGame,
         min_rank: formData.minRank,
         max_rank: formData.maxRank,
-        max_games_per_day: formData.maxGamesPerDay
+        max_games_per_day: formData.maxGamesPerDay,
+        queues: formData.queues
       };
 
       // Solo incluir fechas si el torneo no ha comenzado
@@ -294,6 +346,67 @@ export default function EditTournamentPage() {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Colas de Juego */}
+          <Card className="border-slate-700 bg-slate-800/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Gamepad2 className="w-5 h-5 text-blue-500" />
+                Colas de Juego
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Selecciona qué tipos de partida contarán para el torneo
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {Object.entries(formData.queues).map(([queueKey, queueConfig]) => {
+                const queueNames = {
+                  ranked_solo: 'Ranked Solo/Duo',
+                  ranked_flex: 'Ranked Flex',
+                  normal_draft: 'Normal Draft',
+                  normal_blind: 'Normal Blind Pick',
+                  aram: 'ARAM'
+                };
+                
+                return (
+                  <div key={queueKey} className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-white">{queueNames[queueKey as keyof typeof queueNames]}</Label>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-slate-400">
+                          Multiplicador: {queueConfig.pointMultiplier}x puntos
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          (ID: {queueConfig.id})
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={queueConfig.enabled}
+                      onCheckedChange={(checked) => {
+                        setFormData({
+                          ...formData,
+                          queues: {
+                            ...formData.queues,
+                            [queueKey]: {
+                              ...queueConfig,
+                              enabled: checked
+                            }
+                          }
+                        });
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              
+              {/* Mensaje aclaratorio */}
+              <p className="text-xs text-slate-500 mt-4 p-3 bg-slate-700/30 rounded-lg">
+                Sólo se contabilizarán partidas cuya cola (queueId) coincida con las colas habilitadas del torneo.
+                Si el jugador juega en otro modo, esos puntos se ignorarán automáticamente.
+              </p>
             </CardContent>
           </Card>
 

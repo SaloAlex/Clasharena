@@ -13,7 +13,7 @@ async function processMatchData(matchData: any, puuid: string) {
     // Encontrar al jugador en la partida
     const player = matchData.info.participants.find((p: any) => p.puuid === puuid);
     if (!player) {
-      console.log(`[processMatchData] Jugador no encontrado en partida ${matchData.info.gameId}`);
+
       return null;
     }
 

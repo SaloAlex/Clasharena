@@ -212,7 +212,6 @@ export default function CreateTournamentPage() {
     setIsLoading(true);
 
     try {
-      console.log('Sending form data:', formData);
       
       const enabledQueues = Object.values(formData.queues).filter(q => q.enabled);
 
@@ -248,6 +247,9 @@ export default function CreateTournamentPage() {
         rankRestriction: { min: formData.minRank, max: formData.maxRank },
         maxGamesPerDay: formData.maxGamesPerDay,
 
+        // Configuración de colas (IMPORTANTE para mostrar en el detalle)
+        queues: formData.queues,
+
         // CLAVE PARA EL BACKEND:
         allowedQueueIds,      // <- aquí el backend filtra por match.info.queueId
         queueMultipliers,     // <- opcional: multiplicar puntos por cola
@@ -268,8 +270,6 @@ export default function CreateTournamentPage() {
       });
 
       const data = await response.json();
-      console.log('Response status:', response.status);
-      console.log('Response data:', data);
       if (!response.ok) throw new Error(data || 'Error al crear el torneo');
 
       toast.success('¡Torneo creado exitosamente!');

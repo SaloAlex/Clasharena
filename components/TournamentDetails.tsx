@@ -635,6 +635,14 @@ export function TournamentDetails({
                     aram: 'ARAM'
                   };
 
+                  const queueIcons = {
+                    ranked_solo: <Crown className="w-4 h-4 text-yellow-400" />,
+                    ranked_flex: <Users2 className="w-4 h-4 text-blue-400" />,
+                    normal_draft: <Gamepad2 className="w-4 h-4 text-green-400" />,
+                    normal_blind: <Gamepad2 className="w-4 h-4 text-slate-400" />,
+                    aram: <Zap className="w-4 h-4 text-purple-400" />
+                  };
+
                   const enabledQueues = Object.entries(queues).filter(([key, config]: [string, any]) => config?.enabled);
 
                   if (enabledQueues.length === 0) {
@@ -649,6 +657,7 @@ export function TournamentDetails({
                   return enabledQueues.map(([key, config]: [string, any]) => {
                     const name = queueNames[key as keyof typeof queueNames] || key;
                     const multiplier = config.pointMultiplier || 1;
+                    const icon = queueIcons[key as keyof typeof queueIcons] || <Gamepad2 className="w-4 h-4 text-green-400" />;
                     
                     // Valores por defecto para los puntos si no están configurados
                     const defaultPoints = {
@@ -671,7 +680,7 @@ export function TournamentDetails({
                       <div key={key} className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/50 hover:border-green-500/30 transition-colors">
                         <div className="flex justify-between items-center mb-3">
                           <div className="flex items-center gap-2">
-                            <Gamepad2 className="w-4 h-4 text-green-400" />
+                            {icon}
                             <span className="text-white font-semibold">{name}</span>
                           </div>
                           <Badge variant="outline" className="text-green-400 border-green-400">

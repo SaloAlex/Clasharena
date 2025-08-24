@@ -71,19 +71,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'La fecha de fin debe ser posterior a la de inicio' }, { status: 400 });
     }
 
-    // Coaccionar JSONB
-    const queues = parseJSON(body.queues, {
+    // Números con fallback
+    const toInt = (x: unknown, def = 0) => (Number.isFinite(Number(x)) ? Number(x) : def);
+
+    // Procesar configuración de colas desde el frontend
+    const defaultQueues = {
       ranked_solo: { enabled: true, pointMultiplier: 1.0, id: 420 },
       ranked_flex: { enabled: true, pointMultiplier: 0.8, id: 440 },
       normal_draft: { enabled: false, pointMultiplier: 0.6, id: 400 },
       normal_blind: { enabled: false, pointMultiplier: 0.5, id: 430 },
       aram: { enabled: false, pointMultiplier: 0.4, id: 450 },
-    });
+    };
 
-    const prizes = parseJSON(body.prizes, { first: '', second: '', third: '' });
-
-    // Números con fallback
-    const toInt = (x: unknown, def = 0) => (Number.isFinite(Number(x)) ? Number(x) : def);
+    // Usar las colas del frontend si están disponibles, sino usar las por defecto
+    const queues = body.queues || defaultQueues;
 
     const payload = {
       creator_id: user.id,
@@ -93,14 +94,17 @@ export async function POST(req: Request) {
       status: 'upcoming' as const,
       start_at: startAt.toISOString(),
       end_at: endAt.toISOString(),
-      points_per_win: toInt(body.pointsPerWin, 100),
-      points_per_loss: toInt(body.pointsPerLoss, 0),
-      queues: parseJSON(body.queues, {
-        ranked_solo: { enabled: true, multiplier: 1.0 },
-        ranked_flex: { enabled: true, multiplier: 0.8 },
-        normal_draft: { enabled: false, multiplier: 0.6 }
-      }),
-      prizes: parseJSON(body.prizes, { first: '', second: '', third: '' })
+      points_per_win: toInt(body.pointsPerWin ?? body.scoring?.pointsForWin, 100),
+      points_per_loss: toInt(body.pointsPerLoss ?? body.scoring?.pointsForLoss, 0),
+      points_first_blood: toInt(body.pointsFirstBlood ?? body.scoring?.firstBloodBonus, 10),
+      points_first_tower: toInt(body.pointsFirstTower ?? body.scoring?.firstTowerBonus, 20),
+      points_perfect_game: toInt(body.pointsPerfectGame ?? body.scoring?.perfectGameBonus, 50),
+      min_rank: String(body.rankRestriction?.min ?? body.minRank ?? 'NONE'),
+      max_rank: String(body.rankRestriction?.max ?? body.maxRank ?? 'NONE'),
+      max_games_per_day: toInt(body.maxGamesPerDay, 0),
+      queues: queues,
+      prizes: parseJSON(body.prizes, { first: '', second: '', third: '' }),
+      custom_rules: String(body.customRules ?? '').trim()
     };
 
     // Validaciones básicas
@@ -112,7 +116,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Descripción requerida' }, { status: 400 });
     }
 
-    console.log('Creating tournament with payload:', payload);
+    
     
     const { data, error } = await supabase
       .from('tournaments')
@@ -129,7 +133,7 @@ export async function POST(req: Request) {
       }, { status: error.code === '42501' ? 403 : 500 });
     }
 
-    console.log('Tournament created successfully:', data);
+    
     return NextResponse.json({ ok: true, id: data.id }, { status: 201 });
 
   } catch (error: any) {

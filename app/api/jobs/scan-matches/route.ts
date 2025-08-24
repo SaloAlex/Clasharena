@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     let newPoints = 0;
 
     for (const tournament of activeTournaments || []) {
-      console.log(`Procesando torneo: ${tournament.title}`);
+
 
       // Obtener configuración de colas habilitadas
       const queues = tournament.queues || {};

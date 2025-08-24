@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   const tagLine = url.searchParams.get('tagLine');
   const platform = normPlatform(url.searchParams.get('platform') || undefined);
 
-  console.log('📥 Parámetros recibidos:', { puuid, gameName, tagLine, platform });
+
 
   // Validar que tengamos PUUID o Riot ID
   if (!puuid && (!gameName || !tagLine)) {
@@ -56,14 +56,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'missing_api_key' }, { status: 500 });
   }
   
-  console.log('🔑 API Key configurada:', API_KEY ? 'SÍ' : 'NO', 'Longitud:', API_KEY?.length);
+
 
   let resolvedPuuid = puuid;
 
   // ====== (1) Si no tenemos PUUID, resolver Riot ID → PUUID ======
   if (!resolvedPuuid && gameName && tagLine) {
-    console.log('🔍 Resolviendo Riot ID a PUUID...');
-    console.log('🔗 URL Account:', `https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`);
+
     
     try {
       const accountRes = await fetch(
@@ -78,9 +77,7 @@ export async function GET(req: NextRequest) {
         }
       );
 
-      console.log('📡 Respuesta Account API:', accountRes.status, accountRes.statusText);
       const accountText = await accountRes.text();
-      console.log('📄 Respuesta Account raw:', accountText);
 
       if (!accountRes.ok) {
         console.error('❌ Error Account API:', { status: accountRes.status, detail: accountText });
@@ -114,7 +111,7 @@ export async function GET(req: NextRequest) {
       }
 
       resolvedPuuid = accountJson.puuid;
-      console.log('✅ PUUID resuelto:', resolvedPuuid);
+
     } catch (error) {
       console.error('❌ Error en resolución de Riot ID:', error);
       return NextResponse.json({ 
@@ -126,10 +123,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ====== (2) PUUID → Summoner (encryptedSummonerId) ======
-  console.log('🔍 Obteniendo Summoner por PUUID...');
   const summonerUrl = `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(resolvedPuuid!)}`;
-  console.log('🔗 URL Summoner:', summonerUrl);
-  console.log('🔑 Headers:', { 'X-Riot-Token': API_KEY ? `${API_KEY.substring(0, 10)}...` : 'VACÍA' });
   
   const sumRes = await fetch(
     summonerUrl,
@@ -143,9 +137,7 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  console.log('📡 Respuesta Summoner API:', sumRes.status, sumRes.statusText);
   const sumText = await sumRes.text();
-  console.log('📄 Respuesta Summoner raw:', sumText);
   
   if (!sumRes.ok) {
     console.error('❌ Error Summoner API:', { status: sumRes.status, detail: sumText });
@@ -178,12 +170,10 @@ export async function GET(req: NextRequest) {
     }, { status: 502 });
   }
 
-  console.log('✅ Summoner obtenido:', { id: sJson.id, name: sJson.name });
+
 
   // ====== (3) encryptedSummonerId → League entries ======
-  console.log('🔍 Obteniendo entradas de liga...');
   const leagueUrl = `https://${platform}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encodeURIComponent(sJson.id)}`;
-  console.log('🔗 URL League:', leagueUrl);
   
   const leagueRes = await fetch(
     leagueUrl,
@@ -197,9 +187,7 @@ export async function GET(req: NextRequest) {
     }
   );
 
-  console.log('📡 Respuesta League API:', leagueRes.status, leagueRes.statusText);
   const leagueText = await leagueRes.text();
-  console.log('📄 Respuesta League raw:', leagueText);
   
   if (!leagueRes.ok) {
     console.error('❌ Error League API:', { status: leagueRes.status, detail: leagueText });
@@ -223,15 +211,12 @@ export async function GET(req: NextRequest) {
     }, { status: 502 }); 
   }
 
-  console.log('📊 Entries recibidas:', entries.length, entries.map(e => e.queueType));
+
 
   const solo = entries.find(e => e.queueType === 'RANKED_SOLO_5x5') ?? null;
   const flex = entries.find(e => e.queueType === 'RANKED_FLEX_SR') ?? null;
 
-  console.log('🏆 Rangos encontrados:', { 
-    solo: solo ? `${solo.tier} ${solo.rank}` : 'Unranked',
-    flex: flex ? `${flex.tier} ${flex.rank}` : 'Unranked'
-  });
+
 
   const norm = (e: RankEntry | null) => e ? ({
     queueType: e.queueType,
@@ -253,7 +238,7 @@ export async function GET(req: NextRequest) {
     fetchedAt: Date.now()
   };
 
-  console.log('✅ Respuesta final:', payload);
+
   
   return NextResponse.json({
     success: true,
