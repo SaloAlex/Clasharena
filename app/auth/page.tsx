@@ -5,15 +5,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { signIn, signUp, supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/tournaments';
@@ -38,10 +38,7 @@ export default function AuthPage() {
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
       
-
-      
       const result = await signIn(email, password);
-
       
       // Esperar a que la sesión se establezca
       const maxAttempts = 10;
@@ -49,10 +46,8 @@ export default function AuthPage() {
       
       const checkSession = async () => {
         const { data: { session } } = await supabase.auth.getSession();
-
         
         if (session) {
-  
           toast.success('¡Sesión iniciada correctamente!');
           router.replace(redirectTo);
         } else if (attempts < maxAttempts) {
@@ -105,85 +100,101 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 cyberpunk-bg">
       <div className="w-full max-w-md">
+        {/* Logo y Título */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold">Welcome to LoL Tournaments</h1>
-          <p className="text-slate-400 mt-2">Sign in or create an account to get started</p>
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <Image
+                src="/Logo_fondo.png"
+                alt="CLASH ARENA"
+                width={100}
+                height={100}
+                className="cyberpunk-logo"
+              />
+            </div>
+          </div>
+          <h1 className="text-5xl font-bold cyberpunk-title mb-4">CLASH ARENA</h1>
+          <h2 className="text-2xl font-semibold cyberpunk-subtitle">
+            {isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'}
+          </h2>
         </div>
 
-        <Card className="tournament-card">
-          <CardHeader className="pb-4">
-            <CardTitle>Authentication</CardTitle>
-            <CardDescription>
-              Enter your credentials to access your tournament account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="signin" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="signin">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <Input 
-                      id="signin-email"
-                      name="email" 
-                      type="email" 
-                      placeholder="Enter your email"
-                      required 
-                    />
+        {/* Formulario */}
+        <div className="cyberpunk-card">
+          <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-6">
+            {/* Campo Email */}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="cyberpunk-label">Email</Label>
+              <div className="cyberpunk-input-container">
+                <Input 
+                  id="email"
+                  name="email" 
+                  type="email" 
+                  placeholder="Enter your email"
+                  className="cyberpunk-input email-input"
+                  required 
+                />
+              </div>
+            </div>
+
+            {/* Campo Password */}
+            <div className="space-y-2">
+              <Label htmlFor="password" className="cyberpunk-label">Password</Label>
+              <div className="cyberpunk-input-container">
+                <Input 
+                  id="password"
+                  name="password" 
+                  type="password" 
+                  placeholder={isSignUp ? "Create a password" : "Password"}
+                  className="cyberpunk-input password-input"
+                  required 
+                />
+                {!isSignUp && (
+                  <div className="text-right mt-1">
+                    <button
+                      type="button"
+                      onClick={() => router.push('/auth/forgot-password')}
+                      className="cyberpunk-link"
+                    >
+                      Forgot password?
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Password</Label>
-                    <Input 
-                      id="signin-password"
-                      name="password" 
-                      type="password" 
-                      placeholder="Enter your password"
-                      required 
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In'}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input 
-                      id="signup-email"
-                      name="email" 
-                      type="email" 
-                      placeholder="Enter your email"
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input 
-                      id="signup-password"
-                      name="password" 
-                      type="password" 
-                      placeholder="Create a password"
-                      required 
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Creating Account...' : 'Create Account'}
-                  </Button>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            </div>
+
+            {/* Botón Principal */}
+            <Button 
+              type="submit" 
+              className="cyberpunk-button w-full" 
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="cyberpunk-spinner mr-2"></div>
+                  {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                </div>
+              ) : (
+                isSignUp ? 'CREATE ACCOUNT' : 'SIGN IN'
+              )}
+            </Button>
+          </form>
+
+          {/* Cambiar entre Sign In y Sign Up */}
+          <div className="text-center mt-6">
+            <p className="cyberpunk-text">
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}
+              <button
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="cyberpunk-link-button ml-1"
+              >
+                {isSignUp ? 'Sign in' : 'Sign up'}
+              </button>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

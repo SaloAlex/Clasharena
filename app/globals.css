@@ -1,11 +1,13 @@
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 15, 23, 42;
-  --background-end-rgb: 30, 41, 59;
+  --background-start-rgb: 10, 15, 30; /* #0A0F1E */
+  --background-end-rgb: 17, 24, 39;   /* #111827 */
 }
 
 body {
@@ -83,4 +85,300 @@ body {
 
 .status-finished {
   @apply bg-gray-500/20 text-gray-400 border-gray-500/30;
+}
+
+/* ===== ESTILOS CYBERPUNK PARA LOGIN ===== */
+
+/* Fondo principal */
+.cyberpunk-bg {
+  background: linear-gradient(135deg, #0A0F1E 0%, #111827 50%, #0A0F1E 100%);
+  color: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Logo */
+.cyberpunk-logo {
+  filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.6));
+  animation: logoGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes logoGlow {
+  0% { filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.6)); }
+  50% { filter: drop-shadow(0 0 30px rgba(20, 241, 149, 0.8)); }
+  100% { filter: drop-shadow(0 0 20px rgba(192, 132, 252, 0.6)); }
+}
+
+/* Títulos */
+.cyberpunk-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  text-shadow: 0 0 20px rgba(6, 182, 212, 0.8);
+  letter-spacing: 2px;
+}
+
+.cyberpunk-subtitle {
+  color: #14F195; /* verde neón */
+  text-shadow: 0 0 15px rgba(20, 241, 149, 0.8);
+  font-weight: 600;
+}
+
+/* Tarjeta principal */
+.cyberpunk-card {
+  background: rgba(17, 24, 39, 0.9);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.2);
+  padding: 2.5rem;
+  backdrop-filter: blur(15px);
+}
+
+/* Labels */
+.cyberpunk-label {
+  color: #9CA3AF !important;
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Contenedor de inputs */
+.cyberpunk-input-container {
+  position: relative;
+}
+
+/* Inputs */
+.cyberpunk-input {
+  background: rgba(31, 41, 55, 0.8) !important;
+  border: 1px solid #06B6D4 !important;
+  color: #FFF !important;
+  padding: 1rem !important;
+  border-radius: 8px !important;
+  transition: 0.3s !important;
+  font-size: 1rem !important;
+}
+
+.cyberpunk-input::placeholder {
+  color: #9CA3AF !important;
+}
+
+.cyberpunk-input:focus {
+  border-color: #06B6D4 !important;
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.5) !important;
+  outline: none !important;
+}
+
+/* Input específico para password */
+.password-input {
+  border-color: #C084FC !important;
+}
+
+.password-input:focus {
+  border-color: #C084FC !important;
+  box-shadow: 0 0 15px rgba(192, 132, 252, 0.5) !important;
+}
+
+/* Botón principal */
+.cyberpunk-button {
+  background: linear-gradient(90deg, #14F195, #06B6D4) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  padding: 1rem 2rem !important;
+  box-shadow: 0 0 20px rgba(20, 241, 149, 0.6) !important;
+  transition: 0.3s !important;
+  border: none !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  font-size: 1.1rem !important;
+}
+
+.cyberpunk-button:hover {
+  background: linear-gradient(90deg, #06B6D4, #14F195) !important;
+  box-shadow: 0 0 25px rgba(20, 241, 149, 0.8) !important;
+  transform: translateY(-2px) !important;
+}
+
+.cyberpunk-button:disabled {
+  background: linear-gradient(90deg, #2E3239, #A7A9AC) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+}
+
+/* Spinner de carga */
+.cyberpunk-spinner {
+  border: 3px solid #1F2937;
+  border-top: 3px solid #14F195;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* Texto secundario */
+.cyberpunk-text {
+  color: #9CA3AF !important;
+  font-size: 0.875rem !important;
+}
+
+/* Links */
+.cyberpunk-link,
+.cyberpunk-link-button {
+  color: #C084FC !important;
+  transition: 0.3s !important;
+  text-decoration: none !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 0.9rem !important;
+}
+
+.cyberpunk-link:hover,
+.cyberpunk-link-button:hover {
+  color: #14F195 !important;
+  text-shadow: 0 0 8px #14F195 !important;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .cyberpunk-card {
+    padding: 1.5rem;
+    margin: 0 1rem;
+  }
+  
+  .cyberpunk-title {
+    font-size: 2rem;
+  }
+  
+  .cyberpunk-subtitle {
+    font-size: 1.5rem;
+  }
+}
+
+/* ===== ESTILOS CYBERPUNK PARA NAVBAR ===== */
+
+/* Navbar principal */
+.cyberpunk-navbar {
+  background: rgba(10, 15, 30, 0.95);
+  border-bottom: 1px solid rgba(6, 182, 212, 0.3);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.1);
+}
+
+/* Logo del navbar */
+.cyberpunk-navbar-logo {
+  filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.7));
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.cyberpunk-navbar-logo:hover {
+  filter: drop-shadow(0 0 15px rgba(20, 241, 149, 0.9));
+  transform: scale(1.1);
+}
+
+/* Título del navbar */
+.cyberpunk-navbar-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  text-shadow: 0 0 15px rgba(6, 182, 212, 0.8);
+  letter-spacing: 1px;
+  transition: all 0.3s ease;
+}
+
+.cyberpunk-navbar-title:hover {
+  text-shadow: 0 0 20px rgba(20, 241, 149, 0.9);
+}
+
+/* Links del navbar */
+.cyberpunk-navbar-link {
+  color: #06B6D4 !important;
+  font-weight: 500;
+  transition: all 0.3s ease !important;
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+  cursor: pointer;
+}
+
+.cyberpunk-navbar-link:hover {
+  color: #14F195 !important;
+  text-shadow: 0 0 12px rgba(20, 241, 149, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Botones del navbar */
+.cyberpunk-navbar-button {
+  color: #9CA3AF !important;
+  background: transparent !important;
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.cyberpunk-navbar-button:hover {
+  color: #06B6D4 !important;
+  border-color: #06B6D4 !important;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4) !important;
+  background: rgba(6, 182, 212, 0.1) !important;
+}
+
+.cyberpunk-navbar-button-primary {
+  background: linear-gradient(90deg, #14F195, #06B6D4) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+  border: none !important;
+  box-shadow: 0 0 15px rgba(20, 241, 149, 0.5) !important;
+  transition: all 0.3s ease !important;
+}
+
+.cyberpunk-navbar-button-primary:hover {
+  background: linear-gradient(90deg, #06B6D4, #C084FC) !important;
+  box-shadow: 0 0 20px rgba(192, 132, 252, 0.6) !important;
+  transform: translateY(-2px);
+}
+
+/* Avatar del navbar */
+.cyberpunk-navbar-avatar {
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+  transition: all 0.3s ease !important;
+}
+
+.cyberpunk-navbar-avatar:hover {
+  border-color: #06B6D4 !important;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4) !important;
+}
+
+.cyberpunk-avatar-fallback {
+  background: linear-gradient(90deg, #06B6D4, #14F195) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+}
+
+/* Dropdown del navbar */
+.cyberpunk-dropdown {
+  background: rgba(17, 24, 39, 0.95) !important;
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.2) !important;
+}
+
+.cyberpunk-dropdown-header {
+  color: #9CA3AF !important;
+  border-bottom: 1px solid rgba(6, 182, 212, 0.2) !important;
+}
+
+.cyberpunk-dropdown-item {
+  color: #FFFFFF !important;
+  transition: all 0.3s ease !important;
+}
+
+.cyberpunk-dropdown-item:hover {
+  background: rgba(6, 182, 212, 0.1) !important;
+  color: #14F195 !important;
+  text-shadow: 0 0 8px rgba(20, 241, 149, 0.5) !important;
 }
