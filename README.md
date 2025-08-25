@@ -1,4 +1,4 @@
-# ClashArenaGG - La Arena Definitiva
+# ClashArena - La Arena Definitiva
 
 La plataforma definitiva para torneos de League of Legends con tracking automático de partidas y leaderboards en tiempo real.
 

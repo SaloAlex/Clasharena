@@ -11,7 +11,7 @@ import { cookies } from 'next/headers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ClashArenaGG - Comunidad TheFLAKOO',
+  title: 'ClashArena - Comunidad TheFLAKOO',
   description: 'La arena definitiva para torneos de League of Legends de la comunidad de TheFLAKOO',
 };
 

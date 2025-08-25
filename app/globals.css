@@ -59,6 +59,27 @@ body {
   }
 }
 
+@keyframes glow {
+  0% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.5); }
+  50% { box-shadow: 0 0 30px rgba(6, 182, 212, 0.8); }
+  100% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.5); }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
+
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 3s linear infinite;
+}
+
 /* Custom styles for LoL theme */
 .tournament-card {
   background: linear-gradient(135deg, rgb(30, 41, 59) 0%, rgb(51, 65, 85) 100%);
