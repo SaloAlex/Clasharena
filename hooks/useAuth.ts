@@ -15,17 +15,14 @@ export function useAuth() {
     // Obtener usuario inicial y sesión
     const getInitialUser = async () => {
       try {
-        const [
-          { data: { user } },
-          { data: { session } }
-        ] = await Promise.all([
-          supabase.auth.getUser(),
-          supabase.auth.getSession()
-        ]);
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
 
-
-
-        setUser(user);
+        // Si no hay sesión, intentar refrescar
+        if (!session) {
+          const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
+          setUser(refreshedSession?.user ?? null);
+        }
       } catch (error) {
         console.error('Error getting initial user:', error);
         setUser(null);
@@ -39,8 +36,14 @@ export function useAuth() {
     // Escuchar cambios en la autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-
-        setUser(session?.user ?? null);
+        console.log('Auth state changed:', event, session?.user?.email);
+        
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setUser(session?.user ?? null);
+        }
+        
         setLoading(false);
       }
     );

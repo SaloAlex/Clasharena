@@ -9,7 +9,16 @@ export async function middleware(req: NextRequest) {
     const supabase = createMiddlewareClient({ req, res })
     
     // Intentar refrescar la sesión
-    await supabase.auth.getSession()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    // Si la ruta requiere autenticación y no hay sesión, redirigir a /auth
+    const requiresAuth = ['/tournaments', '/profile', '/t/'].some(path => req.nextUrl.pathname.startsWith(path))
+    
+    if (requiresAuth && !session) {
+      const redirectUrl = new URL('/auth', req.url)
+      redirectUrl.searchParams.set('redirectTo', req.nextUrl.pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
     
     return res
   } catch (error) {

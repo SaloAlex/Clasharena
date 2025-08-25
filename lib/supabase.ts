@@ -18,6 +18,10 @@ export async function signUp(email: string, password: string) {
 
 export async function signIn(email: string, password: string) {
   try {
+    // Primero limpiar cualquier sesión existente
+    await supabase.auth.signOut();
+
+    // Intentar iniciar sesión
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -26,11 +30,17 @@ export async function signIn(email: string, password: string) {
     if (error) {
       throw error;
     }
+
+    // Verificar que la sesión se estableció correctamente
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No se pudo establecer la sesión');
+    }
     
     return data;
   } catch (error: any) {
     if (error.message === 'Failed to fetch') {
-      throw new Error('Unable to connect to authentication service. Please check your internet connection and try again.');
+      throw new Error('No se pudo conectar al servicio de autenticación. Por favor verifica tu conexión a internet e intenta nuevamente.');
     }
     throw error;
   }
