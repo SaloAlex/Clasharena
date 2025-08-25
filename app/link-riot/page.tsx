@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Gamepad2, Shield, Link as LinkIcon } from 'lucide-react';
@@ -225,9 +226,9 @@ export default function LinkRiotPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="riotId" className="text-sm font-medium text-white">
+                <Label htmlFor="riotId" className="text-sm font-medium text-white">
                   Riot ID
-                </label>
+                </Label>
                 <Input
                   id="riotId"
                   placeholder="Nombre#TAG"
@@ -241,9 +242,9 @@ export default function LinkRiotPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="platform" className="text-sm font-medium text-white">
+                <Label htmlFor="platform" className="text-sm font-medium text-white">
                   Plataforma
-                </label>
+                </Label>
                 <Select
                   value={formData.platform}
                   onValueChange={(value) => setFormData({ ...formData, platform: value })}

@@ -105,10 +105,10 @@ export function TournamentRegistrationButton({
   const getHighestRank = () => {
     if (!playerRank) return 'Sin rango';
 
-    const soloQ = playerRank.solo_q ? {
-      tier: playerRank.solo_q.tier,
-      rank: playerRank.solo_q.rank,
-      lp: playerRank.solo_q.lp
+    const soloQ = playerRank.soloQ ? {
+      tier: playerRank.soloQ.tier,
+      rank: playerRank.soloQ.rank,
+      lp: playerRank.soloQ.lp
     } : null;
 
     const flex = playerRank.flex ? {
@@ -135,10 +135,10 @@ export function TournamentRegistrationButton({
     }
 
     const playerRanks = {
-      soloQ: playerRank.solo_q ? {
-        tier: playerRank.solo_q.tier,
-        rank: playerRank.solo_q.rank,
-        lp: playerRank.solo_q.lp
+      soloQ: playerRank.soloQ ? {
+        tier: playerRank.soloQ.tier,
+        rank: playerRank.soloQ.rank,
+        lp: playerRank.soloQ.lp
       } : null,
       flex: playerRank.flex ? {
         tier: playerRank.flex.tier,

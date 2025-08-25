@@ -21,7 +21,7 @@ export function supabaseServer() {
         },
         remove(name: string, options: any) {
           try {
-            cookieStore.delete(name, options);
+            cookieStore.delete(name);
           } catch (error) {
             // Handle cookie removal error
           }
@@ -41,4 +41,19 @@ export async function getSession() {
     console.error('Error getting session:', error);
     return null;
   }
+}
+
+export function supabaseRoute() {
+  return supabaseServer();
+}
+
+export async function requireAuthRoute() {
+  const supabase = supabaseServer();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    throw new Error('Authentication required');
+  }
+  
+  return user;
 }

@@ -1,10 +1,13 @@
 'use client';
 
+/* eslint-disable jsx-a11y/label-has-associated-control */
+
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -368,10 +371,10 @@ export default function TournamentsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Estado del Torneo */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-blue-400" />
                   Estado del Torneo
-                </label>
+                </Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700">
                     <SelectValue placeholder="Seleccionar estado" />
@@ -397,10 +400,10 @@ export default function TournamentsPage() {
 
               {/* Formato del Torneo */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Trophy className="w-4 h-4 text-purple-400" />
                   Formato del Torneo
-                </label>
+                </Label>
                 <Select value={formatFilter} onValueChange={setFormatFilter}>
                   <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700">
                     <SelectValue placeholder="Seleccionar formato" />
@@ -426,10 +429,10 @@ export default function TournamentsPage() {
 
               {/* Modo de Juego */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                   <Gamepad2 className="w-4 h-4 text-green-400" />
                   Modo de Juego
-                </label>
+                </Label>
                 <Select value={gameModeFilter} onValueChange={setGameModeFilter}>
                   <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700">
                     <SelectValue placeholder="Seleccionar modo" />

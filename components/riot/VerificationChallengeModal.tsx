@@ -70,6 +70,7 @@ export function VerificationChallengeModal({
         <div className="flex flex-col items-center gap-4 py-4">
           <div className="relative w-32 h-32 border-2 border-blue-500 rounded-lg overflow-hidden">
             <DataDragonImage
+              src={`https://ddragon.leagueoflegends.com/cdn/14.22.1/img/profileicon/${iconId}.png`}
               type="profileicon"
               identifier={iconId}
               alt={`Ícono ${iconId}`}

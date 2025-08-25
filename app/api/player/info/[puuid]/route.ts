@@ -35,28 +35,28 @@ export async function GET(
     // Obtener información de liga
     // const leagueData = await riotApi.getLeagueEntries(summonerData.id, region);
 
-    // Procesar datos de liga
-    const soloQueue = leagueData.find((entry: any) => entry.queueType === 'RANKED_SOLO_5x5');
-    const flexQueue = leagueData.find((entry: any) => entry.queueType === 'RANKED_FLEX_SR');
+    // Procesar datos de liga (comentado temporalmente)
+    // const soloQueue = leagueData.find((entry: any) => entry.queueType === 'RANKED_SOLO_5x5');
+    // const flexQueue = leagueData.find((entry: any) => entry.queueType === 'RANKED_FLEX_SR');
 
-    const formatRank = (entry: any) => {
-      if (!entry) return null;
-      
-      return {
-        queueType: entry.queueType,
-        tier: entry.tier,
-        rank: entry.rank,
-        leaguePoints: entry.leaguePoints,
-        wins: entry.wins,
-        losses: entry.losses,
-        winRate: ((entry.wins / (entry.wins + entry.losses)) * 100).toFixed(1),
-        hotStreak: entry.hotStreak,
-        veteran: entry.veteran,
-        freshBlood: entry.freshBlood,
-        inactive: entry.inactive,
-        miniSeries: entry.miniSeries
-      };
-    };
+    // const formatRank = (entry: any) => {
+    //   if (!entry) return null;
+    //   
+    //   return {
+    //     queueType: entry.queueType,
+    //     tier: entry.tier,
+    //     rank: entry.rank,
+    //     leaguePoints: entry.leaguePoints,
+    //     wins: entry.wins,
+    //     losses: entry.losses,
+    //     winRate: ((entry.wins / (entry.wins + entry.losses)) * 100).toFixed(1),
+    //     hotStreak: entry.hotStreak,
+    //     veteran: entry.veteran,
+    //     freshBlood: entry.freshBlood,
+    //     inactive: entry.inactive,
+    //     miniSeries: entry.miniSeries
+    //   };
+    // };
 
     return NextResponse.json({
       success: false,

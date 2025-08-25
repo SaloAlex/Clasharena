@@ -1,4 +1,10 @@
-import { RateLimitConfig } from './client';
+// Definir la interfaz localmente ya que el archivo client no existe
+interface RateLimitConfig {
+  method: string;
+  endpoint: string;
+  limit: number;
+  windowMs: number;
+}
 
 // Cache para almacenar timestamps de las últimas peticiones
 const requestCache = new Map<string, number[]>();

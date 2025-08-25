@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -116,9 +117,11 @@ export function ChampionStats({ matches }: ChampionStatsProps) {
               >
                 {/* Imagen y nombre del campeón */}
                 <div className="flex items-center w-48">
-                  <img
+                  <Image
                     src={stat.image}
                     alt={stat.name}
+                    width={40}
+                    height={40}
                     className="w-10 h-10 rounded-full border border-slate-600"
                   />
                   <span className="ml-3 font-medium text-white">{stat.name}</span>

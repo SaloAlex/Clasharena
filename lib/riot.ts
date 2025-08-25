@@ -526,3 +526,24 @@ export async function getChampionMasteryFromMatches(puuid: string, championId?: 
 
 // Función para obtener versión actual de Data Dragon
 export { getLatestVersion };
+
+// Función para obtener summoner por PUUID
+export async function getSummonerByPuuid(puuid: string, platform: string = 'la2') {
+  try {
+    const response = await fetch(
+      `https://${platform}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}`,
+      {
+        headers: { 'X-Riot-Token': process.env.RIOT_API_KEY! },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get summoner: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`[getSummonerByPuuid] Error:`, error);
+    throw error;
+  }
+}

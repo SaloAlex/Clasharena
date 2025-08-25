@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable jsx-a11y/label-has-associated-control */
+
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';

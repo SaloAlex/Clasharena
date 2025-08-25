@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
     // Obtener datos de campeones
     // const championsData = await riotApi.getChampions();
     
-    // Procesar y formatear los datos
-    const champions = Object.values(championsData.data).map((champion: any) => ({
-      id: champion.key,
-      name: champion.name,
-      title: champion.title,
-      image: champion.image.full,
-      tags: champion.tags
-    }));
+    // Procesar y formatear los datos (comentado temporalmente)
+    // const champions = Object.values(championsData.data).map((champion: any) => ({
+    //   id: champion.key,
+    //   name: champion.name,
+    //   title: champion.title,
+    //   image: champion.image.full,
+    //   tags: champion.tags
+    // }));
 
     return NextResponse.json({
       success: false,

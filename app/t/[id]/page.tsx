@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TournamentDetails } from '@/components/TournamentDetails';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +32,13 @@ interface TournamentRegistration {
   id: string;
   tournament_id: string;
   user_id: string;
+  summoner_name: string;
+  summoner_id?: string;
+  region: string;
+  current_rank?: string;
+  total_points: number;
+  total_matches: number;
+  status: string;
   created_at: string;
 }
 
@@ -53,39 +60,7 @@ export default function TournamentPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (typeof params.id === 'string') {
-      loadTournamentData();
-
-      // Suscribirse a cambios en registros del usuario actual
-      if (user) {
-        const channel = supabase
-          .channel('registration_status')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'tournament_registrations',
-              filter: `tournament_id=eq.${params.id} AND user_id=eq.${user.id}`
-            },
-            () => {
-              loadTournamentData();
-            }
-          )
-          .subscribe();
-
-        return () => {
-          supabase.removeChannel(channel);
-        };
-      }
-    } else {
-      setIsLoading(false);
-      toast.error('ID de torneo inválido');
-    }
-  }, [params.id, user?.id]);
-
-  const loadTournamentData = async () => {
+  const loadTournamentData = useCallback(async () => {
     try {
       // Cargar datos del torneo
       const { data: tournamentData, error: tournamentError } = await supabase
@@ -122,7 +97,39 @@ export default function TournamentPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [params.id, user]);
+
+  useEffect(() => {
+    if (typeof params.id === 'string') {
+      loadTournamentData();
+
+      // Suscribirse a cambios en registros del usuario actual
+      if (user) {
+        const channel = supabase
+          .channel('registration_status')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'tournament_registrations',
+              filter: `tournament_id=eq.${params.id} AND user_id=eq.${user.id}`
+            },
+            () => {
+              loadTournamentData();
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }
+    } else {
+      setIsLoading(false);
+      toast.error('ID de torneo inválido');
+    }
+  }, [params.id, user?.id, loadTournamentData, user]);
 
   if (isLoading) {
     return (
