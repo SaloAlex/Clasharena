@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { Navigation } from '@/components/Navigation';
-import { TwitchStatus } from '@/components/TwitchStatus';
+import { KickStatus } from '@/components/KickStatus';
+
 import SupabaseProvider from '@/components/providers/SupabaseProvider';
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
@@ -35,7 +36,8 @@ export default async function RootLayout({
             {children}
           </main>
           <Toaster position="bottom-right" />
-          <TwitchStatus />
+          <KickStatus />
+
         </SupabaseProvider>
       </body>
     </html>

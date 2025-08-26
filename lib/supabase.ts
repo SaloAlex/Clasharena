@@ -18,10 +18,7 @@ export async function signUp(email: string, password: string) {
 
 export async function signIn(email: string, password: string) {
   try {
-    // Primero limpiar cualquier sesión existente
-    await supabase.auth.signOut();
-
-    // Intentar iniciar sesión
+    // Intentar iniciar sesión directamente
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,

@@ -108,7 +108,7 @@ export default function CreateTournamentPage() {
   // Redirección segura en efecto (no durante el render)
   useEffect(() => {
     if (user && user.email !== 'dvdsalomon6@gmail.com') {
-      router.replace('/tournaments');
+      router.replace('/');
     }
   }, [user, router]);
 

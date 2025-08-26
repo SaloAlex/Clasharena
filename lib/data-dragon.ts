@@ -34,7 +34,6 @@ async function ensureChampMap(version?: string): Promise<ChampMaps> {
     }
     
     CHAMP_CACHE = { version: ver, idToKey };
-    console.log(`[DataDragon] Cached champion mapping for version ${ver} with ${Object.keys(idToKey).length} champions`);
     return CHAMP_CACHE;
   } catch (error) {
     console.error('[DataDragon] Error obteniendo champion mapping:', error);
@@ -137,6 +136,42 @@ export async function getChampionImageUrlByName(championName: string): Promise<s
   } catch (error) {
     const version = await getStableDataDragonVersion();
     return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/Aatrox.png`;
+  }
+}
+
+// FUNCIÓN PARA OBTENER TÍTULO DEL CAMPEÓN
+export async function getChampionTitle(championId: number): Promise<string> {
+  try {
+    const { version, idToKey } = await ensureChampMap();
+    const champKey = idToKey[championId];
+
+    if (!champKey) {
+      console.warn(`[DataDragon] Unknown champion ID ${championId} for title → fallback`);
+      return 'The Dark Child'; // Título de Annie como fallback
+    }
+
+    // Obtener datos completos del campeón
+    const championDataUrl = `https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion/${champKey}.json`;
+    const response = await fetch(championDataUrl, { cache: 'no-store' });
+    
+    if (!response.ok) {
+      console.warn(`[DataDragon] Error obteniendo datos de campeón ${champKey}: ${response.status}`);
+      return 'The Dark Child';
+    }
+
+    const data = await response.json();
+    const championData = data.data[champKey];
+    
+    if (championData && championData.title) {
+      return championData.title;
+    } else {
+      console.warn(`[DataDragon] No se encontró título para campeón ${champKey}`);
+      return 'The Dark Child';
+    }
+    
+  } catch (error) {
+    console.error(`[DataDragon] Error obteniendo título para champion ID ${championId}:`, error);
+    return 'The Dark Child';
   }
 }
 

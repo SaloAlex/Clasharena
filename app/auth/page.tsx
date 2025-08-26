@@ -16,7 +16,7 @@ export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirectTo') || '/tournaments';
+  const redirectTo = searchParams.get('redirectTo') || '/';
 
   // Verificar si hay una sesión activa al cargar la página
   useEffect(() => {

@@ -17,10 +17,10 @@ export default function SupabaseProvider({
     // Verificar sesión inicial
     const checkInitialSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        await supabase.auth.getSession();
         setIsInitialized(true);
       } catch (error) {
-        console.error('Error checking initial session:', error);
+        console.error('[SupabaseProvider] Error checking initial session:', error);
         setIsInitialized(true);
       }
     };
@@ -33,16 +33,16 @@ export default function SupabaseProvider({
       // Solo manejar eventos después de la inicialización
       if (!isInitialized) return;
 
-      // Solo manejar SIGNED_OUT real, ignorar otros eventos
-      if (event === 'SIGNED_OUT') {
-        const currentPath = window.location.pathname;
-        const protectedPaths = ['/profile', '/tournaments', '/t/'];
-        const isOnProtectedPath = protectedPaths.some(path => currentPath.startsWith(path));
-        
-        if (isOnProtectedPath) {
-          console.log('User signed out, redirecting to auth');
-          router.replace('/auth');
-        }
+      switch (event) {
+        case 'SIGNED_OUT':
+          const currentPath = window.location.pathname;
+          const protectedPaths = ['/profile', '/tournaments', '/t/'];
+          const isOnProtectedPath = protectedPaths.some(path => currentPath.startsWith(path));
+          
+          if (isOnProtectedPath) {
+            router.replace('/auth');
+          }
+          break;
       }
     });
 

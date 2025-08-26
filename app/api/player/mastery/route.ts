@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getChampionMasteryOptimized } from '@/lib/riot-mastery-optimized';
-import { getChampionImageUrl } from '@/lib/data-dragon';
+import { getChampionImageUrl, getChampionTitle } from '@/lib/data-dragon';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,12 +9,13 @@ export const runtime = 'nodejs';
 async function processMasteryData(masteryData: any[]) {
   return await Promise.all(masteryData.map(async mastery => {
     const imageUrl = await getChampionImageUrl(mastery.championId);
+    const title = await getChampionTitle(mastery.championId);
     
     return {
       ...mastery,
       championInfo: {
         name: getChampionNameById(mastery.championId),
-        title: 'Unknown',
+        title: title,
         image: imageUrl
       }
     };
@@ -52,7 +53,7 @@ function getChampionNameById(championId: number): string {
     26: 'Zilean',
     27: 'Singed',
     28: 'Evelynn',
-    29: 'Twitch',
+
     30: 'Karthus',
     31: 'Chogath',
     32: 'Amumu',

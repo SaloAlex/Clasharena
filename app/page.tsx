@@ -14,7 +14,7 @@ import {
   Medal,
   TrendingUp,
   Gamepad2,
-  Twitch,
+
   Shield,
   ArrowRight,
   Rocket,
@@ -458,8 +458,11 @@ export default function HomePage() {
                 </p>
                 <div className="flex gap-4">
                   {user ? (
-                    <Button className="bg-[#20FF86] hover:bg-[#1AE676] text-black">
-                      <Twitch className="w-5 h-5 mr-2" />
+                    <Button 
+                      onClick={() => window.location.href = '/api/auth/kick/start'}
+                      className="bg-[#20FF86] hover:bg-[#1AE676] text-black"
+                    >
+                      <Shield className="w-5 h-5 mr-2" />
                       Conectar Kick
                     </Button>
                   ) : (
@@ -475,7 +478,7 @@ export default function HomePage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-800/30 rounded-lg p-4 text-center">
-                  <Twitch className="w-8 h-8 text-[#20FF86] mx-auto mb-2" />
+                  <Shield className="w-8 h-8 text-[#20FF86] mx-auto mb-2" />
                   <div className="text-white">Kick</div>
                 </div>
                 <div className="bg-slate-800/30 rounded-lg p-4 text-center">

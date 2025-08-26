@@ -100,6 +100,33 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
     return points.toString();
   };
 
+  const calculateMasteryProgress = (level: number, points: number): number => {
+    // Definir los umbrales de puntos para cada nivel
+    const thresholds = {
+      1: 0,
+      2: 400,
+      3: 1200,
+      4: 2800,
+      5: 6000,
+      6: 12600,
+      7: 21600
+    };
+
+    // Si es nivel 7, el progreso es 100%
+    if (level >= 7) {
+      return 100;
+    }
+
+    // Calcular progreso hacia el siguiente nivel
+    const currentThreshold = thresholds[level as keyof typeof thresholds] || 0;
+    const nextThreshold = thresholds[(level + 1) as keyof typeof thresholds] || 21600;
+    const progressInLevel = points - currentThreshold;
+    const pointsNeededForNextLevel = nextThreshold - currentThreshold;
+    
+    const progress = (progressInLevel / pointsNeededForNextLevel) * 100;
+    return Math.min(Math.max(progress, 0), 100);
+  };
+
   const filteredMastery = masteryData
     .filter(mastery => 
       mastery.championInfo.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -259,7 +286,7 @@ export function ChampionMastery({ puuid }: ChampionMasteryProps) {
                       </span>
                     </div>
                     <Progress 
-                      value={Math.min((mastery.championPoints / 1000000) * 100, 100)} 
+                      value={calculateMasteryProgress(mastery.championLevel, mastery.championPoints)} 
                       className="h-2 bg-slate-200 dark:bg-slate-600"
                     />
                   </div>

@@ -48,7 +48,13 @@ export default function TournamentsPage() {
         setIsRefreshing(true);
       }
       
-      const response = await fetch('/api/tournaments');
+      const response = await fetch('/api/tournaments', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       const data = await response.json();
 
       if (!response.ok) {

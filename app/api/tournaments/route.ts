@@ -8,6 +8,7 @@ export async function GET(req: Request) {
     
     // Verificar autenticación
     const { data: { user } } = await supabase.auth.getUser();
+    
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }

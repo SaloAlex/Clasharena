@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,15 +24,35 @@ interface RiotAccount {
   puuid: string;
 }
 
+interface KickAccount {
+  kick_id: string;
+  kick_username: string;
+  kick_display_name: string;
+  kick_profile_image: string;
+  kick_access_token: string;
+  kick_expires_at: string;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = createClientComponentClient();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isUnlinking, setIsUnlinking] = useState(false);
+  const [isUnlinkingKick, setIsUnlinkingKick] = useState(false);
   const [riotAccount, setRiotAccount] = useState<RiotAccount | null>(null);
+  const [kickAccount, setKickAccount] = useState<KickAccount | null>(null);
 
   // Verificar autenticación y cargar datos
+  useEffect(() => {
+    // Mostrar mensaje de éxito si viene de conectar Kick
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('kick') === 'connected') {
+      toast.success('¡Cuenta de Kick conectada exitosamente!');
+      // Limpiar el parámetro de la URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -43,13 +64,23 @@ export default function ProfilePage() {
         }
 
         // Cargar cuenta de Riot
-        const response = await fetch('/api/riot/profile', {
+        const riotResponse = await fetch('/api/riot/profile', {
           credentials: 'include'
         });
-        const data = await response.json();
+        const riotData = await riotResponse.json();
 
-        if (data.success) {
-          setRiotAccount(data.account);
+        if (riotData.success) {
+          setRiotAccount(riotData.account);
+        }
+
+        // Cargar cuenta de Kick
+        const kickResponse = await fetch('/api/kick/profile', {
+          credentials: 'include'
+        });
+        const kickData = await kickResponse.json();
+
+        if (kickData.success) {
+          setKickAccount(kickData.kickAccount);
         }
       } catch (error) {
         console.error('Error al cargar perfil:', error);
@@ -62,7 +93,7 @@ export default function ProfilePage() {
     checkAuth();
   }, [router, supabase.auth]);
 
-  // Desvincular cuenta
+  // Desvincular cuenta de Riot
   const handleUnlink = async () => {
     try {
       setIsUnlinking(true);
@@ -76,7 +107,7 @@ export default function ProfilePage() {
 
       if (response.ok) {
         setRiotAccount(null);
-        toast.success('Cuenta desvinculada exitosamente');
+        toast.success('Cuenta de Riot desvinculada exitosamente');
       } else {
         throw new Error(data.error || 'Error al desvincular cuenta');
       }
@@ -84,6 +115,31 @@ export default function ProfilePage() {
       toast.error(error.message);
     } finally {
       setIsUnlinking(false);
+    }
+  };
+
+  // Desvincular cuenta de Kick
+  const handleUnlinkKick = async () => {
+    try {
+      setIsUnlinkingKick(true);
+      
+      const response = await fetch('/api/kick/unlink', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setKickAccount(null);
+        toast.success('Cuenta de Kick desvinculada exitosamente');
+      } else {
+        throw new Error(data.error || 'Error al desvincular cuenta de Kick');
+      }
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsUnlinkingKick(false);
     }
   };
 
@@ -205,6 +261,114 @@ export default function ProfilePage() {
                 >
                   <LinkIcon className="w-4 h-4 mr-2" />
                   Vincular Cuenta
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Cuenta de Kick - Diseño Mejorado */}
+        <Card className="mb-8 border-0 shadow-lg bg-white/80 dark:bg-slate-800/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300 animate-in slide-in-from-bottom-4">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-[#20FF86] to-[#1AE676] rounded-xl">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-slate-900 dark:text-white text-xl">
+                    Cuenta de Kick
+                  </CardTitle>
+                  <CardDescription className="text-slate-600 dark:text-slate-400">
+                    Estado de tu cuenta de streaming
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {kickAccount ? (
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-[#20FF86]/10 dark:from-slate-700/50 dark:to-[#20FF86]/20 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+                <div className="flex items-center gap-4">
+                  <Avatar className="w-12 h-12 bg-gradient-to-br from-[#20FF86] to-[#1AE676] ring-2 ring-white dark:ring-slate-800 shadow-lg">
+                    {kickAccount.kick_profile_image ? (
+                      <Image 
+                        src={kickAccount.kick_profile_image} 
+                        alt={kickAccount.kick_username}
+                        width={48}
+                        height={48}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <AvatarFallback className="text-white font-semibold">
+                        {kickAccount.kick_username.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold text-slate-900 dark:text-white">
+                        {kickAccount.kick_display_name || kickAccount.kick_username}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400 font-mono">
+                        @{kickAccount.kick_username}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-[#20FF86]/20 text-[#20FF86] border-[#20FF86]/30 dark:bg-[#20FF86]/10 dark:text-[#20FF86] dark:border-[#20FF86]/20">
+                        <Shield className="w-3 h-3 mr-1" />
+                        Conectada
+                      </Badge>
+                      <Badge variant="secondary" className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                        Streaming
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => window.open(`https://kick.com/${kickAccount.kick_username}`, '_blank')}
+                    variant="outline"
+                    size="sm"
+                    className="border-[#20FF86]/30 text-[#20FF86] hover:bg-[#20FF86]/10 dark:border-[#20FF86]/50 dark:text-[#20FF86] dark:hover:bg-[#20FF86]/20"
+                  >
+                    Ver Canal
+                  </Button>
+                  <Button
+                    onClick={handleUnlinkKick}
+                    disabled={isUnlinkingKick}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 transition-all duration-200 hover:scale-105"
+                  >
+                    {isUnlinkingKick ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-600 border-t-transparent"></div>
+                    ) : (
+                      <>
+                        <Unlink className="w-4 h-4 mr-2" />
+                        Desvincular
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4 hover:scale-110 transition-transform duration-300">
+                  <Shield className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                  Sin cuenta de Kick vinculada
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 mb-6 max-w-sm mx-auto">
+                  Conecta tu cuenta de Kick para usar tus puntos en torneos y recibir notificaciones
+                </p>
+                <Button
+                  onClick={() => window.location.href = '/api/auth/kick/start'}
+                  className="bg-gradient-to-r from-[#20FF86] to-[#1AE676] hover:from-[#1AE676] hover:to-[#20FF86] text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Conectar Kick
                 </Button>
               </div>
             )}
